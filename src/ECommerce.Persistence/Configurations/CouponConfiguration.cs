@@ -32,6 +32,10 @@ namespace ECommerce.Persistence.Configurations
             builder.Property(c => c.DiscountType)
                 .IsRequired()
                 .HasConversion<int>();
+
+            builder.Property(c => c.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
         }
     }
 }

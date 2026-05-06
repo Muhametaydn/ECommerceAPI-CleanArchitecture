@@ -25,6 +25,13 @@ namespace ECommerce.Persistence.Configurations
             builder.Property(o => o.TotalAmount)
                 .HasColumnType("decimal(18,2)");
 
+            builder.Property(o => o.DiscountAmount)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0);
+
+            builder.Property(o => o.CouponCode)
+                .HasMaxLength(50);
+
             builder.Property(o => o.Status)
                 .IsRequired()
                 .HasConversion<int>();

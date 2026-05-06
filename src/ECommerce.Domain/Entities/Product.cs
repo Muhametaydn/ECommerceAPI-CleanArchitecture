@@ -45,8 +45,15 @@ namespace ECommerce.Domain.Entities
 
             StockQuantity -= quantity;
             UpdateAt = DateTime.UtcNow;
-            
+        }
 
+        public void IncreaseStock(int quantity) {
+
+            if (quantity <= 0)
+                throw new ArgumentException("Miktar pozitif olmalı.");
+
+            StockQuantity += quantity;
+            UpdateAt = DateTime.UtcNow;
         }
 
     }

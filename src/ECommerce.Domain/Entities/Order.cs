@@ -11,6 +11,8 @@ namespace ECommerce.Domain.Entities
         public string OrderNumber { get; set; } = string.Empty;
         public Enums.OrderStatus Status { get; set; } = Enums.OrderStatus.Pending;
         public decimal TotalAmount { get; private set; }
+        public decimal DiscountAmount { get; set; }
+        public string? CouponCode { get; set; }
         public string? Note { get; set; }
 
         public Guid UserId { get; set; }
@@ -19,7 +21,7 @@ namespace ECommerce.Domain.Entities
         public Guid ShippingAddressId { get; set; }
         public Address ShippingAddress { get; set; } = null!;
 
-        public ICollection<OrderItem> OrderItems = new List<OrderItem>();
+        public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
         public Payment? Payment { get; set; }
 
 
@@ -30,8 +32,10 @@ namespace ECommerce.Domain.Entities
         }
 
         //Toplam tutar hesapla
-        public void CalculateTotal() { 
-        TotalAmount = OrderItems.Sum(item => item.TotalPrice);
+        public void CalculateTotal() {
+            var subTotal = OrderItems.Sum(item => item.TotalPrice);
+            TotalAmount = subTotal - DiscountAmount;
+            if (TotalAmount < 0) TotalAmount = 0;
         }
         //Siparis onayla
         public void Confirm() {
@@ -47,7 +51,7 @@ namespace ECommerce.Domain.Entities
             if(Status != Enums.OrderStatus.Confirmed)
                 throw new InvalidOperationException("Sadece onaylanmış siparişler kargoya verilebilir.");
 
-            Status = Enums.OrderStatus.Confirmed;
+            Status = Enums.OrderStatus.Shipped;
             UpdateAt = DateTime.UtcNow;
         }
 
@@ -66,8 +70,8 @@ namespace ECommerce.Domain.Entities
         //iptal et
 
         public void Cancel() {
-            if(Status != Enums.OrderStatus.Delivered)
-                throw new InvalidOperationException("Teslim edilmiş sipariş iptal edilemez.");
+            if(Status == Enums.OrderStatus.Delivered || Status == Enums.OrderStatus.Cancelled || Status == Enums.OrderStatus.Refunded)
+                throw new InvalidOperationException("Teslim edilmiş, iptal edilmiş veya iade edilmiş sipariş iptal edilemez.");
 
             Status = Enums.OrderStatus.Cancelled;
             UpdateAt = DateTime.UtcNow;

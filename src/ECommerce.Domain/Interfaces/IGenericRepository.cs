@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Linq.Expressions;
 using ECommerce.Domain.Common;
+using ECommerce.Domain.Specifications;
 
 namespace ECommerce.Domain.Interfaces
 {
@@ -27,8 +28,12 @@ namespace ECommerce.Domain.Interfaces
         void Update(T entity);
         void Delete(T entity);
 
-        
-
         Task<int> CountAsync(Expression<Func<T, bool>> predicate);
+
+        // --- Specification Pattern ---
+        // Specification ile sorgulama: filtre + include + siralama + sayfalama tek seferde
+        Task<IReadOnlyList<T>> ListAsync(ISpecification<T> spec);
+        Task<int> CountAsync(ISpecification<T> spec);
+        Task<T?> FirstOrDefaultAsync(ISpecification<T> spec);
     }
 }

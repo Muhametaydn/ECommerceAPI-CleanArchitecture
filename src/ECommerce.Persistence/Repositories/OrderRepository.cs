@@ -17,6 +17,7 @@ namespace ECommerce.Persistence.Repositories
 
         public async Task<IReadOnlyList<Order>> GetOrdersByUserAsync(Guid userId) {
             return await _dbSet
+                .Include(o => o.OrderItems)
                 .Where (o => o.UserId == userId)
                 .OrderByDescending (o => o.CreatedAt)
                 .ToListAsync();
@@ -33,8 +34,9 @@ namespace ECommerce.Persistence.Repositories
         {
             return await _dbSet
                 .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
+                    .ThenInclude(oi => oi.Product)
                 .Include(o => o.Payment)
+                .Include(o => o.ShippingAddress)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
 

@@ -1,12 +1,7 @@
-﻿using ECommerce.Domain.Interfaces;
+using ECommerce.Domain.Interfaces;
 using ECommerce.Persistence.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ECommerce.Persistence
 {
@@ -16,24 +11,22 @@ namespace ECommerce.Persistence
             this IServiceCollection services,
             IConfiguration configuration)
         {
-            //Generic repository
-            services.AddScoped(typeof(IGenericRepository<>) , typeof(GenericRepository<>));
+            // Generic repository
+            services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
-            //Specific repositories
+            // Specific repositories
             services.AddScoped<IProductRepository, ProductRepository>();
             services.AddScoped<ICategoryRepository, CategoryRepository>();
             services.AddScoped<IOrderRepository, OrderRepository>();
+            services.AddScoped<ICouponRepository, CouponRepository>();
+            services.AddScoped<IAddressRepository, AddressRepository>();
+            services.AddScoped<IReviewRepository, ReviewRepository>();
+            services.AddScoped<IPaymentRepository, PaymentRepository>();
 
-            //Unit Of Work
-            services.AddScoped<IUnitOfWork ,  UnitOfWork>();
+            // Unit Of Work
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             return services;
         }
-
-
-
-
-
-
     }
 }

@@ -12,6 +12,9 @@ namespace ECommerce.Domain.Interfaces
         IOrderRepository Order { get; }
         ICategoryRepository Category { get; }
         ICouponRepository Coupon { get; }
+        IAddressRepository Address { get; }
+        IReviewRepository Review { get; }
+        IPaymentRepository Payment { get; }
 
         Task<int> SaveChangesAsync();
 

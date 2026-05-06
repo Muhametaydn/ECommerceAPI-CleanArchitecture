@@ -1,19 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using ECommerce.Domain.Entities;
+﻿using ECommerce.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-
 
 namespace ECommerce.Persistence.Context
 {
-    public class ApplicationDbContext : DbContext
+    // IdentityDbContext zaten DbContext'ten türüyor, ayrıca DbContext ekleme!
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
-
+        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<Product> Products => Set<Product>();
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<Order> Orders => Set<Order>();
@@ -22,7 +19,7 @@ namespace ECommerce.Persistence.Context
         public DbSet<Address> Address => Set<Address>();
         public DbSet<Payment> Payments => Set<Payment>();
         public DbSet<Review> Reviews => Set<Review>();
-         public DbSet<Coupon> Coupons => Set<Coupon>();
+        public DbSet<Coupon> Coupons => Set<Coupon>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -40,24 +37,33 @@ namespace ECommerce.Persistence.Context
                     Name = "Elektronik",
                     Description = "Elektronik ürünler",
                     Slug = "elektronik",
+                    IsActive = true,
+                    Depth = 1,
+                    SortOrder = 0,
                     CreatedAt = DateTime.UtcNow
                 },
-new Category
-{
-    Id = Guid.Parse("b2222222-2222-2222-2222-222222222222"),
-    Name = "Giyim",
-    Description = "Giyim ürünleri",
-    Slug = "giyim",
-    CreatedAt = DateTime.UtcNow
-},
-new Category
-{
-    Id = Guid.Parse("c3333333-3333-3333-3333-333333333333"),
-    Name = "Ev & Yaşam",
-    Description = "Ev ve yaşam ürünleri",
-    Slug = "ev-yasam",
-    CreatedAt = DateTime.UtcNow
-}
+                new Category
+                {
+                    Id = Guid.Parse("b2222222-2222-2222-2222-222222222222"),
+                    Name = "Giyim",
+                    Description = "Giyim ürünleri",
+                    Slug = "giyim",
+                    IsActive = true,
+                    Depth = 1,
+                    SortOrder = 1,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new Category
+                {
+                    Id = Guid.Parse("c3333333-3333-3333-3333-333333333333"),
+                    Name = "Ev & Yaşam",
+                    Description = "Ev ve yaşam ürünleri",
+                    Slug = "ev-yasam",
+                    IsActive = true,
+                    Depth = 1,
+                    SortOrder = 2,
+                    CreatedAt = DateTime.UtcNow
+                }
             );
         }
 

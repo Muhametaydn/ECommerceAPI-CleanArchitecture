@@ -51,6 +51,20 @@ namespace ECommerce.API.Middlewares
                 }
                 },
 
+                UnauthorizedAccessException unauthorizedEx => new ProblemDetails
+                {
+                    Status = StatusCodes.Status401Unauthorized,
+                    Title = "Yetkisiz Erişim",
+                    Detail = unauthorizedEx.Message
+                },
+
+                InvalidOperationException invalidOpEx => new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Geçersiz İşlem",
+                    Detail = invalidOpEx.Message
+                },
+
                 NotFoundException notFoundEx => new ProblemDetails
                 {
                     Status = StatusCodes.Status404NotFound,

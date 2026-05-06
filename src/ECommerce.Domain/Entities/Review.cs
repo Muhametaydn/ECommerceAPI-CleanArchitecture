@@ -18,14 +18,13 @@ namespace ECommerce.Domain.Entities
         public Guid UserId { get; set; }
         public User User { get; set; } = null!;
 
-        public void SetRating(int rating) 
+        public void SetRating(int rating)
         {
-            if (rating < 1 || rating > 5) {
+            if (rating < 1 || rating > 5)
                 throw new ArgumentException("Rating 1-5 arasında olmalı.");
 
-                Rating = rating;
-            }
-        
+            Rating = rating;
+            UpdateAt = DateTime.UtcNow;
         }
     }
 }

@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- ASP.NET Core Identity tiplerini (IdentityUser vb.) class library'de kullanmak için -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Events\" />
   </ItemGroup>
 

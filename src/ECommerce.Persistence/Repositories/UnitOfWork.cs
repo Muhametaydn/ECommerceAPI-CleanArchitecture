@@ -16,6 +16,9 @@ namespace ECommerce.Persistence.Repositories
         public IOrderRepository Order { get; }
         public ICategoryRepository Category { get; }
         public ICouponRepository Coupon { get; }
+        public IAddressRepository Address { get; }
+        public IReviewRepository Review { get; }
+        public IPaymentRepository Payment { get; }
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -24,6 +27,9 @@ namespace ECommerce.Persistence.Repositories
             Order = new OrderRepository(context);
             Category = new CategoryRepository(context);
             Coupon = new CouponRepository(context);
+            Address = new AddressRepository(context);
+            Review = new ReviewRepository(context);
+            Payment = new PaymentRepository(context);
         }
 
         public async Task<int> SaveChangesAsync()

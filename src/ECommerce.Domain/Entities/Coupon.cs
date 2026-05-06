@@ -16,20 +16,31 @@ namespace ECommerce.Domain.Entities
         public int MaxUsageCount { get; set; }
         public int CurrentUsageCount { get; set; }
         public DateTime ExpiryDate { get; set; }
+        public bool IsActive { get; set; } = true;
 
 
-        public bool IsValid() 
+        public bool IsValid()
         {
-            return DateTime.UtcNow <= ExpiryDate
+            return IsActive
+                && DateTime.UtcNow <= ExpiryDate
                 && CurrentUsageCount < MaxUsageCount;
         }
 
         public decimal CalculateDiscount(decimal orderTotal)
         {
             if (!IsValid())
-                throw new InvalidOperationException($"Minimum sipariş tutarı{MinimumOrderAmount.Value} TL");
+                throw new InvalidOperationException("Kupon geçersiz veya süresi dolmuş.");
 
-            return DiscountType == Enums.DiscountType.Percentage ? orderTotal * (DiscountValue / 100) : DiscountValue;
+            if (MinimumOrderAmount.HasValue && orderTotal < MinimumOrderAmount.Value)
+                throw new InvalidOperationException(
+                    $"Bu kuponu kullanmak için minimum sipariş tutarı {MinimumOrderAmount.Value:N2} TL olmalıdır.");
+
+            var discount = DiscountType == Enums.DiscountType.Percentage
+                ? orderTotal * (DiscountValue / 100)
+                : DiscountValue;
+
+            // İndirim sipariş tutarını aşamaz
+            return Math.Min(discount, orderTotal);
         }
 
         public void Use() {
@@ -37,6 +48,12 @@ namespace ECommerce.Domain.Entities
                 throw new InvalidOperationException("Kupon geçersiz.");
 
             CurrentUsageCount++;
+            UpdateAt = DateTime.UtcNow;
+        }
+
+        public void Deactivate()
+        {
+            IsActive = false;
             UpdateAt = DateTime.UtcNow;
         }
 
