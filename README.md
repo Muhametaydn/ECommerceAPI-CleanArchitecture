@@ -37,13 +37,13 @@ graph TB
     Client(["🌐 İstemci"])
 
     subgraph API ["ECommerce.API"]
-        Controllers["Controllers\nAuth · Product · Order · Cart\nCategory · Coupon · Payment · Review"]
-        Middleware["Middleware\nGlobalException · ETag · RateLimiting · Serilog"]
+        Controllers["Controllers\nAuth · Product · Order · Cart\nCategory · Coupon · Payment · Review · Address"]
+        Middleware["Middleware\nGlobalException · ETag · Serilog Request Logging\nRate Limiting (Built-in Policy)"]
     end
 
     subgraph Application ["ECommerce.Application"]
         CQRS["CQRS — MediatR\nCommands & Queries"]
-        Behaviors["Pipeline Behaviors\nValidation · Caching · Logging"]
+        Behaviors["Pipeline Behaviors\nValidation · Caching"]
         Validators["FluentValidation"]
     end
 
@@ -53,18 +53,19 @@ graph TB
         Search["Elasticsearch\nFuzzy Search"]
         MQ["RabbitMQ + MassTransit\nOrderCreated · PaymentProcessed\nLowStockAlert · OrderStatusChanged"]
         Jobs["Hangfire\nOutbox Processor"]
-        Email["FluentEmail + MailHog\nSMTP Bildirimleri"]
+        Email["FluentEmail + MailKit\nSMTP Bildirimleri (local: MailHog)"]
     end
 
     subgraph Persistence ["ECommerce.Persistence"]
         Repo["Generic Repository\n+ Unit of Work"]
         Spec["Specification Pattern"]
+        Outbox[("Outbox Table\nOutboxRepository")]
         DB[("PostgreSQL 16\nEF Core 8")]
     end
 
     subgraph Domain ["ECommerce.Domain"]
         Entities["Rich Domain Model\nProduct · Order · Cart · Payment\nCategory · Coupon · Review"]
-        Events["Domain Events\nOutbox Pattern"]
+        Events["Domain Events\nIDomainEvent"]
     end
 
     Client --> Controllers
@@ -79,8 +80,9 @@ graph TB
     Repo --> Spec
     Repo --> DB
     CQRS --> Events
-    Events --> MQ
-    Events --> Jobs
+    Events --> Outbox
+    Outbox --> Jobs
+    Jobs --> MQ
     MQ --> Email
     Domain --> Entities
     Domain --> Events
