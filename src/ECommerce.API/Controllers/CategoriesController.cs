@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using ECommerce.Application.Features.Categories.Commands.CreateCategory;
 using ECommerce.Application.Features.Categories.Commands.DeleteCategory;
 using ECommerce.Application.Features.Categories.Commands.UpdateCategory;
@@ -14,6 +15,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace ECommerce.API.Controllers
 {
     [ApiController]
+    [ApiVersion("1.0")]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
     [EnableRateLimiting("api")]

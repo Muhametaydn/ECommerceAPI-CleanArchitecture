@@ -1,17 +1,13 @@
-﻿using ECommerce.Domain.Entities;
+using ECommerce.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ECommerce.Persistence.Configurations
 {
     public class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
-        public void Configure(EntityTypeBuilder<Product> builder) { 
+        public void Configure(EntityTypeBuilder<Product> builder)
+        {
             builder.HasKey(x => x.Id);
 
             builder.Property(p => p.Name)
@@ -29,9 +25,24 @@ namespace ECommerce.Persistence.Configurations
                 .IsRequired()
                 .HasMaxLength(50);
 
+            // ── Indexler ─────────────────────────────────────────────────────
+            // SKU benzersiz arama
             builder.HasIndex(p => p.SKU)
                 .IsUnique();
 
+            // Kategori bazlı filtreleme (en sık kullanılan filtre)
+            builder.HasIndex(p => p.CategoryId);
+
+            // Aktif ürün listesi + fiyat sıralaması (composite)
+            builder.HasIndex(p => new { p.IsActive, p.Price });
+
+            // Aktif ürün listesi + tarih sıralaması (varsayılan sıralama)
+            builder.HasIndex(p => new { p.IsActive, p.CreatedAt });
+
+            // Aktif ürün + kategori + fiyat aralığı filtresi (yaygın sorgu kombinasyonu)
+            builder.HasIndex(p => new { p.CategoryId, p.IsActive, p.Price });
+
+            // ── İlişkiler ─────────────────────────────────────────────────────
             builder.HasOne(p => p.Category)
                 .WithMany(c => c.Products)
                 .HasForeignKey(p => p.CategoryId)

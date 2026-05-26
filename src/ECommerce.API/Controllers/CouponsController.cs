@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using ECommerce.Application.Features.Coupons.Commands.CreateCoupon;
 using ECommerce.Application.Features.Coupons.Commands.DeleteCoupon;
 using ECommerce.Application.Features.Coupons.DTOs;
@@ -11,6 +12,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace ECommerce.API.Controllers
 {
     [ApiController]
+    [ApiVersion("1.0")]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
     [EnableRateLimiting("api")]

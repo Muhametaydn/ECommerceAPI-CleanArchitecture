@@ -1,14 +1,11 @@
-﻿using ECommerce.Application.Features.Products.DTOs;
+using ECommerce.Application.Common.Interfaces;
+using ECommerce.Application.Features.Products.DTOs;
 using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace ECommerce.Application.Features.Products.Queries.GetProductById
+namespace ECommerce.Application.Features.Products.Queries.GetProductById;
+
+public record GetProductByIdQuery(Guid Id) : IRequest<ProductDTO>, ICacheableRequest
 {
-    public record GetProductByIdQuery(Guid Id) : IRequest<ProductDTO>;
-
-
+    public string CacheKey => $"products:single:{Id}";
+    public TimeSpan? CacheDuration => TimeSpan.FromMinutes(10);
 }

@@ -3,12 +3,7 @@ using ECommerce.Domain.Interfaces;
 using ECommerce.Domain.Specifications;
 using ECommerce.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ECommerce.Persistence.Repositories
 {
@@ -23,23 +18,33 @@ namespace ECommerce.Persistence.Repositories
             _dbSet = context.Set<T>();
         }
 
-        public async Task<T> GetByIdAsync(Guid id) {
+        /// <summary>
+        /// Write işlemleri (Update/Delete) için — change tracking aktif.
+        /// </summary>
+        public async Task<T> GetByIdAsync(Guid id)
+        {
             return await _dbSet.FindAsync(id);
         }
 
+        /// <summary>
+        /// Read-only sorgu — AsNoTracking ile daha hızlı.
+        /// </summary>
         public async Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
         {
-            return await _dbSet.FirstOrDefaultAsync(predicate);
+            return await _dbSet.AsNoTracking().FirstOrDefaultAsync(predicate);
         }
 
+        /// <summary>
+        /// Tüm kayıtları getirir — read-only, AsNoTracking.
+        /// </summary>
         public async Task<IReadOnlyList<T>> GetAllAsync()
         {
-            return await _dbSet.ToListAsync();
+            return await _dbSet.AsNoTracking().ToListAsync();
         }
 
         public async Task<IReadOnlyList<T>> GetWhereAsync(Expression<Func<T, bool>> predicate)
         {
-            return await _dbSet.Where(predicate).ToListAsync();
+            return await _dbSet.AsNoTracking().Where(predicate).ToListAsync();
         }
 
         public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate)
@@ -47,20 +52,24 @@ namespace ECommerce.Persistence.Repositories
             return await _dbSet.AnyAsync(predicate);
         }
 
-        public async Task<int> CountAsync() {
+        public async Task<int> CountAsync()
+        {
             return await _dbSet.CountAsync();
         }
 
-        public async Task<T> AddAsync(T entity) {
+        public async Task<T> AddAsync(T entity)
+        {
             await _dbSet.AddAsync(entity);
             return entity;
         }
 
-        public void Update(T entity) {
+        public void Update(T entity)
+        {
             _dbSet.Update(entity);
         }
 
-        public void Delete(T entity) {
+        public void Delete(T entity)
+        {
             _dbSet.Remove(entity);
         }
 
@@ -72,8 +81,9 @@ namespace ECommerce.Persistence.Repositories
         // --- Specification Pattern Implementasyonu ---
 
         /// <summary>
-        /// Specification'daki tum kosullari (WHERE, Include, OrderBy, Paging)
-        /// IQueryable uzerine uygular ve sonucu doner.
+        /// Specification'daki tüm koşulları (WHERE, Include, OrderBy, Paging)
+        /// IQueryable üzerine uygular ve sonucu döner.
+        /// AsNoTracking: sadece okuma sorguları — change tracking yükü olmaz.
         /// </summary>
         public async Task<IReadOnlyList<T>> ListAsync(ISpecification<T> spec)
         {
@@ -82,8 +92,8 @@ namespace ECommerce.Persistence.Repositories
 
         public async Task<int> CountAsync(ISpecification<T> spec)
         {
-            // Count icin paging ve ordering uygulamiyoruz — sadece criteria
-            var query = _dbSet.AsQueryable();
+            // Count için paging ve ordering uygulamıyoruz — sadece criteria
+            var query = _dbSet.AsNoTracking().AsQueryable();
 
             if (spec.Criteria != null)
                 query = query.Where(spec.Criteria);
@@ -97,15 +107,15 @@ namespace ECommerce.Persistence.Repositories
         }
 
         /// <summary>
-        /// Specification Evaluator: Specification'daki tum kurallari
-        /// IQueryable'a cevirir. Bu method sayesinde her repository
-        /// ayri ayri filtreleme yazmak zorunda kalmaz.
+        /// Specification Evaluator: Specification'daki tüm kuralları
+        /// IQueryable'a çevirir. AsNoTracking ile read-only performansı.
         /// </summary>
         private IQueryable<T> ApplySpecification(ISpecification<T> spec)
         {
-            var query = _dbSet.AsQueryable();
+            // AsNoTracking: read-only sorgular için bellek ve CPU tasarrufu
+            var query = _dbSet.AsNoTracking().AsQueryable();
 
-            // 1. WHERE kosulu
+            // 1. WHERE koşulu
             if (spec.Criteria != null)
                 query = query.Where(spec.Criteria);
 
@@ -117,7 +127,7 @@ namespace ECommerce.Persistence.Repositories
             query = spec.IncludeStrings.Aggregate(query,
                 (current, include) => current.Include(include));
 
-            // 4. Siralama
+            // 4. Sıralama
             if (spec.OrderBy != null)
                 query = query.OrderBy(spec.OrderBy);
             else if (spec.OrderByDescending != null)

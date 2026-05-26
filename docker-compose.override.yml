@@ -1,0 +1,26 @@
+# docker-compose.override.yml — Geliştirme ortamı ayarları
+# Bu dosya otomatik olarak docker-compose.yml üzerine uygulanır (docker compose up)
+# Prod'da: docker compose -f docker-compose.yml up
+
+version: '3.8'
+
+services:
+  api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    # Dev'de kaynak kodu mount etmek yerine build kullan
+    # Hot reload için: dotnet watch run (container dışında)
+
+  postgres:
+    environment:
+      POSTGRES_DB: ECommerceDB
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    # Dev'de veri kalıcılığı — volume zaten tanımlı
+
+  elasticsearch:
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"  # Dev'de daha az RAM

@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using System.Security.Claims;
 using ECommerce.Application.Features.Reviews.Commands.CreateReview;
 using ECommerce.Application.Features.Reviews.Commands.DeleteReview;
@@ -13,6 +14,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace ECommerce.API.Controllers
 {
     [ApiController]
+    [ApiVersion("1.0")]
     [Route("api/v1")]
     [Produces("application/json")]
     [EnableRateLimiting("api")]

@@ -1,3 +1,4 @@
+using ECommerce.Application.Common.Interfaces;
 using ECommerce.Domain.Interfaces;
 using ECommerce.Persistence.Repositories;
 using Microsoft.Extensions.Configuration;
@@ -25,6 +26,9 @@ namespace ECommerce.Persistence
 
             // Unit Of Work
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+            // Outbox Pattern
+            services.AddScoped<IOutboxRepository, OutboxRepository>();
 
             return services;
         }

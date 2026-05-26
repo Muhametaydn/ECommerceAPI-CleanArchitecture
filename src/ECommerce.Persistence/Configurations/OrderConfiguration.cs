@@ -54,13 +54,19 @@ namespace ECommerce.Persistence.Configurations
             builder.HasOne(o => o.Payment)
                 .WithOne(p => p.Order)
                 .HasForeignKey<Payment>(p => p.OrderId);
-               
 
-           
+            // ── Indexler ─────────────────────────────────────────────────────
+            // Kullanıcının siparişlerini listele (en sık sorgu)
+            builder.HasIndex(o => o.UserId);
 
+            // Kullanıcı + durum filtresi (örn: "aktif siparişlerim")
+            builder.HasIndex(o => new { o.UserId, o.Status });
 
+            // Durum bazlı admin sorguları
+            builder.HasIndex(o => o.Status);
 
-
+            // Tarih bazlı sıralama (varsayılan: en yeni önce)
+            builder.HasIndex(o => o.CreatedAt);
 
 
         }

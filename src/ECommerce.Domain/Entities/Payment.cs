@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using ECommerce.Domain.Events.Payments;
 
 namespace ECommerce.Domain.Entities
 {
@@ -16,24 +12,23 @@ namespace ECommerce.Domain.Entities
         public Guid OrderId { get; set; }
         public Order Order { get; set; } = null!;
 
-
-        public void MarkAsCompleted(string transactonId)
+        /// <summary>Ödemeyi tamamlar ve domain event yayar.</summary>
+        public void MarkAsCompleted(string transactionId)
         {
             if (Status != Enums.PaymentStatus.Pending)
                 throw new InvalidOperationException("Sadece bekleyen ödemeler tamamlanabilir.");
 
             Status = Enums.PaymentStatus.Completed;
-            TransacionId = transactonId;
+            TransacionId = transactionId;
             UpdateAt = DateTime.UtcNow;
+
+            AddDomainEvent(new PaymentCompletedDomainEvent(Id, OrderId, Amount, transactionId));
         }
 
         public void MarkAsFailed()
         {
             Status = Enums.PaymentStatus.Failed;
             UpdateAt = DateTime.UtcNow;
-
         }
-
-
     }
 }

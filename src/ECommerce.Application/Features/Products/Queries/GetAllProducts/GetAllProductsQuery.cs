@@ -1,3 +1,4 @@
+using ECommerce.Application.Common.Interfaces;
 using ECommerce.Application.Common.Models;
 using ECommerce.Application.Features.Products.DTOs;
 using MediatR;
@@ -13,7 +14,7 @@ namespace ECommerce.Application.Features.Products.Queries.GetAllProducts;
 ///
 /// Cursor gonderilirse cursor-based mod aktif olur.
 /// </summary>
-public class GetAllProductsQuery : IRequest<PaginatedResult<ProductDTO>>
+public class GetAllProductsQuery : IRequest<PaginatedResult<ProductDTO>>, ICacheableRequest
 {
     // --- Sayfalama ---
     public int PageNumber { get; init; } = 1;
@@ -30,4 +31,15 @@ public class GetAllProductsQuery : IRequest<PaginatedResult<ProductDTO>>
     // --- Siralama ---
     public string? SortBy { get; init; }        // price, name, stock, date
     public bool SortDescending { get; init; }
+
+    // --- Cache ---
+    /// <summary>
+    /// Tüm parametreler cache key'e dahil edilir; farklı filtreler farklı girdi üretir.
+    /// Prefix "products:list:" ile başlar — invalidation sırasında bu prefix temizlenir.
+    /// </summary>
+    public string CacheKey =>
+        $"products:list:p{PageNumber}s{PageSize}c{Cursor}q{SearchTerm}cat{CategoryId}" +
+        $"min{MinPrice}max{MaxPrice}stock{InStock}sort{SortBy}desc{SortDescending}";
+
+    public TimeSpan? CacheDuration => TimeSpan.FromMinutes(3);
 }

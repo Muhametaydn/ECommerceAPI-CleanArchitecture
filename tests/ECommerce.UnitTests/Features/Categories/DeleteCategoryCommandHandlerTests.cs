@@ -1,4 +1,5 @@
 using ECommerce.Application.Common.Exceptions;
+using ECommerce.Application.Common.Interfaces;
 using ECommerce.Application.Features.Categories.Commands.DeleteCategory;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Interfaces;
@@ -20,7 +21,8 @@ public class DeleteCategoryCommandHandlerTests
         _unitOfWorkMock.Setup(u => u.Category).Returns(_categoryRepoMock.Object);
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
-        _handler = new DeleteCategoryCommandHandler(_unitOfWorkMock.Object);
+        var cacheMock = new Mock<ICacheService>();
+        _handler = new DeleteCategoryCommandHandler(_unitOfWorkMock.Object, cacheMock.Object);
     }
 
     [Fact]

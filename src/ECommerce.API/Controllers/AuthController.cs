@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using ECommerce.Application.Contracts.Identity;
 using ECommerce.Application.Features.Auth.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace ECommerce.API.Controllers
 {
     [ApiController]
+    [ApiVersion("1.0")]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
     [EnableRateLimiting("auth")]

@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using System.Security.Claims;
 using ECommerce.Application.Features.Payments.Commands.RefundPayment;
 using ECommerce.Application.Features.Payments.DTOs;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace ECommerce.API.Controllers
 {
     [ApiController]
+    [ApiVersion("1.0")]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
     [EnableRateLimiting("api")]

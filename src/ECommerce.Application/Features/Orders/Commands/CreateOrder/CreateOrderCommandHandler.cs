@@ -93,6 +93,9 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
             // 5) Toplam tutarı hesapla (indirim dahil)
             order.CalculateTotal();
 
+            // 5b) Sipariş oluşturuldu domain event'ini raise et
+            order.RaiseOrderCreated();
+
             // 6) Ödeme kaydı oluştur
             var payment = new Payment
             {

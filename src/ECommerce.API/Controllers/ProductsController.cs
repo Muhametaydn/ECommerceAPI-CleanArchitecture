@@ -1,8 +1,10 @@
+using Asp.Versioning;
 using ECommerce.Application.Common.Models;
 using ECommerce.Application.Features.Products.Commands.CreateProduct;
 using ECommerce.Application.Features.Products.DTOs;
 using ECommerce.Application.Features.Products.Queries.GetAllProducts;
 using ECommerce.Application.Features.Products.Queries.GetProductById;
+using ECommerce.Application.Features.Products.Queries.SearchProducts;
 using ECommerce.Application.Features.Products.Commands.UpdateProduct;
 using ECommerce.Application.Features.Products.Commands.DeleteProduct;
 using MediatR;
@@ -14,6 +16,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace ECommerce.API.Controllers
 {
     [ApiController]
+    [ApiVersion("1.0")]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
     [EnableRateLimiting("api")]
@@ -100,6 +103,40 @@ namespace ECommerce.API.Controllers
         {
             await _mediator.Send(new DeleteProductCommand(id));
             return NoContent();
+        }
+
+        /// <summary>
+        /// Elasticsearch ile full-text urun arama
+        /// </summary>
+        /// <remarks>
+        /// DB sorgusu yerine Elasticsearch kullanır. Büyük kataloglarda çok daha hızlı.
+        ///
+        /// Ornek istekler:
+        ///
+        ///     GET /api/v1/products/search?query=laptop
+        ///     GET /api/v1/products/search?query=iphone&amp;minPrice=10000&amp;categoryId=xxx
+        ///     GET /api/v1/products/search?inStock=true&amp;sortBy=price&amp;sortDescending=false
+        ///
+        /// Fuzzy search destekler (yazım hatası toleransı: "laptpo" → "laptop")
+        /// </remarks>
+        [HttpGet("search")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ProductSearchResult), StatusCodes.Status200OK)]
+        public async Task<IActionResult> Search(
+            [FromQuery] string? query,
+            [FromQuery] Guid? categoryId,
+            [FromQuery] decimal? minPrice,
+            [FromQuery] decimal? maxPrice,
+            [FromQuery] bool? inStock,
+            [FromQuery] string? sortBy,
+            [FromQuery] bool sortDescending = false,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var result = await _mediator.Send(new SearchProductsQuery(
+                query, categoryId, minPrice, maxPrice, inStock,
+                sortBy, sortDescending, pageNumber, pageSize));
+            return Ok(result);
         }
     }
 }

@@ -1,4 +1,5 @@
 using ECommerce.Application.Common.Exceptions;
+using ECommerce.Application.Common.Interfaces;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Interfaces;
 using MediatR;
@@ -8,10 +9,12 @@ namespace ECommerce.Application.Features.Categories.Commands.UpdateCategory;
 public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryCommand>
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICacheService _cacheService;
 
-    public UpdateCategoryCommandHandler(IUnitOfWork unitOfWork)
+    public UpdateCategoryCommandHandler(IUnitOfWork unitOfWork, ICacheService cacheService)
     {
         _unitOfWork = unitOfWork;
+        _cacheService = cacheService;
     }
 
     public async Task Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
@@ -38,7 +41,6 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
         category.Description = request.Description;
         category.SortOrder = request.SortOrder;
 
-        // Aktiflik durumu degistiyse
         if (request.IsActive && !category.IsActive)
             category.Activate();
         else if (!request.IsActive && category.IsActive)
@@ -46,5 +48,8 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
 
         _unitOfWork.Category.Update(category);
         await _unitOfWork.SaveChangesAsync();
+
+        // Tüm kategori cache'lerini temizle
+        await _cacheService.RemoveByPrefixAsync("categories:", cancellationToken);
     }
 }

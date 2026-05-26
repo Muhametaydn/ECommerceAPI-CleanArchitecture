@@ -1,11 +1,4 @@
-﻿using ECommerce.Domain.Common;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using ECommerce.Domain.Events.Products;
 
 namespace ECommerce.Domain.Entities
 {
@@ -34,17 +27,19 @@ namespace ECommerce.Domain.Entities
             UpdateAt = DateTime.UtcNow;
         }
 
-        public void DecreaseStock(int quantity) {
-
+        public void DecreaseStock(int quantity)
+        {
             if (quantity <= 0)
                 throw new ArgumentException("Miktar pozitif olmalı.");
 
             if (StockQuantity < quantity)
                 throw new ArgumentException("Yetersiz stok.");
 
-
+            int previousStock = StockQuantity;
             StockQuantity -= quantity;
             UpdateAt = DateTime.UtcNow;
+
+            AddDomainEvent(new StockDecreasedDomainEvent(Id, Name, previousStock, StockQuantity, quantity));
         }
 
         public void IncreaseStock(int quantity) {

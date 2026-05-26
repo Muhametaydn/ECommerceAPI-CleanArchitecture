@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using ECommerce.Domain.Events.Orders;
 
 namespace ECommerce.Domain.Entities
 {
@@ -24,63 +20,78 @@ namespace ECommerce.Domain.Entities
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
         public Payment? Payment { get; set; }
 
-
-        //siparis numarasi uretme
+        // ── Fabrika metodu (CreateOrderCommandHandler kullanır) ───────────────
         public static string GenerateOrderNumber()
+            => $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
+
+        /// <summary>
+        /// Sipariş oluşturulduktan sonra CreateOrderCommandHandler tarafından çağrılır.
+        /// Domain event burada raise edilir.
+        /// </summary>
+        public void RaiseOrderCreated()
         {
-            return $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
+            AddDomainEvent(new OrderCreatedDomainEvent(Id, OrderNumber, UserId, TotalAmount));
         }
 
-        //Toplam tutar hesapla
-        public void CalculateTotal() {
+        // ── Toplam tutar hesapla ──────────────────────────────────────────────
+        public void CalculateTotal()
+        {
             var subTotal = OrderItems.Sum(item => item.TotalPrice);
             TotalAmount = subTotal - DiscountAmount;
             if (TotalAmount < 0) TotalAmount = 0;
         }
-        //Siparis onayla
-        public void Confirm() {
+
+        // ── State Machine ─────────────────────────────────────────────────────
+
+        /// <summary>Siparişi onaylar: Pending → Confirmed</summary>
+        public void Confirm()
+        {
             if (Status != Enums.OrderStatus.Pending)
                 throw new InvalidOperationException("Sadece bekleyen siparişler onaylanabilir.");
 
             Status = Enums.OrderStatus.Confirmed;
             UpdateAt = DateTime.UtcNow;
+
+            AddDomainEvent(new OrderConfirmedDomainEvent(Id, OrderNumber, UserId));
         }
 
-        //kargoyas ver
-        public void Ship() { 
-            if(Status != Enums.OrderStatus.Confirmed)
+        /// <summary>Siparişi kargoya verir: Confirmed → Shipped</summary>
+        public void Ship()
+        {
+            if (Status != Enums.OrderStatus.Confirmed)
                 throw new InvalidOperationException("Sadece onaylanmış siparişler kargoya verilebilir.");
 
             Status = Enums.OrderStatus.Shipped;
             UpdateAt = DateTime.UtcNow;
+
+            AddDomainEvent(new OrderShippedDomainEvent(Id, OrderNumber, UserId));
         }
 
-        //teslim et
-        public void Deliver() { 
-        
-            if(Status != Enums.OrderStatus.Shipped)
-                 throw new InvalidOperationException("Sadece kargodaki siparişler teslim edilebilir.");
+        /// <summary>Siparişi teslim edildi olarak işaretler: Shipped → Delivered</summary>
+        public void Deliver()
+        {
+            if (Status != Enums.OrderStatus.Shipped)
+                throw new InvalidOperationException("Sadece kargodaki siparişler teslim edilebilir.");
 
             Status = Enums.OrderStatus.Delivered;
             UpdateAt = DateTime.UtcNow;
 
+            AddDomainEvent(new OrderDeliveredDomainEvent(Id, OrderNumber, UserId));
         }
 
-
-        //iptal et
-
-        public void Cancel() {
-            if(Status == Enums.OrderStatus.Delivered || Status == Enums.OrderStatus.Cancelled || Status == Enums.OrderStatus.Refunded)
-                throw new InvalidOperationException("Teslim edilmiş, iptal edilmiş veya iade edilmiş sipariş iptal edilemez.");
+        /// <summary>Siparişi iptal eder</summary>
+        public void Cancel()
+        {
+            if (Status == Enums.OrderStatus.Delivered
+                || Status == Enums.OrderStatus.Cancelled
+                || Status == Enums.OrderStatus.Refunded)
+                throw new InvalidOperationException(
+                    "Teslim edilmiş, iptal edilmiş veya iade edilmiş sipariş iptal edilemez.");
 
             Status = Enums.OrderStatus.Cancelled;
             UpdateAt = DateTime.UtcNow;
+
+            AddDomainEvent(new OrderCancelledDomainEvent(Id, OrderNumber, UserId));
         }
-
-
-
-
-
-
     }
 }

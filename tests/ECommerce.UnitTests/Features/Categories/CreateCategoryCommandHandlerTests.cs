@@ -1,3 +1,4 @@
+using ECommerce.Application.Common.Interfaces;
 using ECommerce.Application.Features.Categories.Commands.CreateCategory;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Interfaces;
@@ -19,7 +20,8 @@ public class CreateCategoryCommandHandlerTests
         _unitOfWorkMock.Setup(u => u.Category).Returns(_categoryRepoMock.Object);
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync()).ReturnsAsync(1);
 
-        _handler = new CreateCategoryCommandHandler(_unitOfWorkMock.Object);
+        var cacheMock = new Mock<ICacheService>();
+        _handler = new CreateCategoryCommandHandler(_unitOfWorkMock.Object, cacheMock.Object);
     }
 
     [Fact]

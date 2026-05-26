@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using System.Security.Claims;
 using ECommerce.Application.Features.Cart.Commands.AddToCart;
 using ECommerce.Application.Features.Cart.Commands.ClearCart;
@@ -14,6 +15,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace ECommerce.API.Controllers
 {
     [ApiController]
+    [ApiVersion("1.0")]
     [Route("api/v1/cart")]
     [Produces("application/json")]
     [EnableRateLimiting("api")]
