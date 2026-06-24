@@ -22,13 +22,13 @@ public static class IdentitySeeder
         }
 
         // Admin kullanıcı
-        var adminEmail = "admin@ecommerce.com";
+        var adminEmail = "admin@outlook.com";
         if (await userManager.FindByEmailAsync(adminEmail) is null)
         {
-            var admin = ApplicationUser.Create("Admin", "User", adminEmail, "admin");
+            var admin = ApplicationUser.Create("Admin", "User", adminEmail, adminEmail);
             admin.EmailConfirmed = true; // Seed'de direkt onaylı
 
-            var result = await userManager.CreateAsync(admin, "Admin123!@#");
+            var result = await userManager.CreateAsync(admin, "Admin123!");
             if (result.Succeeded)
                 await userManager.AddToRoleAsync(admin, AppRoles.Admin);
         }
