@@ -7,6 +7,7 @@ using ECommerce.Domain.Entities;
 using ECommerce.Domain.Interfaces;
 using ECommerce.Domain.Specifications;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace ECommerce.UnitTests.Features.Products;
@@ -33,8 +34,9 @@ public class GetAllProductsQueryHandlerTests
         _productRepoMock = new Mock<IProductRepository>();
 
         // Gercek AutoMapper profili kullan — mapping hatalarini da yakalariz
-        var config = new MapperConfiguration(cfg =>
-            cfg.AddProfile<ProductMappingProfile>());
+        var config = new MapperConfiguration(
+            cfg => cfg.AddProfile<ProductMappingProfile>(),
+            NullLoggerFactory.Instance);
         _mapper = config.CreateMapper();
 
         _handler = new GetAllProductsQueryHandler(_productRepoMock.Object, _mapper);

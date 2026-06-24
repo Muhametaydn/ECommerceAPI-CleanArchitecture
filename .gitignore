@@ -486,3 +486,7 @@ $RECYCLE.BIN/
 
 # Appsettings
 appsettings.Development.json
+
+# Local agent context files
+AGENTS.md
+CLAUDE.md
