@@ -61,8 +61,8 @@ graph TB
     subgraph Persistence ["ECommerce.Persistence"]
         Repo["Generic Repository\n+ Unit of Work"]
         Spec["Specification Pattern"]
-        Outbox[(("Outbox Table\nOutboxRepository"))]
-        DB[(("PostgreSQL 16\nEF Core 8"))]
+        Outbox[("Outbox Table\nOutboxRepository")]
+        DB[("PostgreSQL 16\nEF Core 8")]
     end
 
     subgraph Domain ["ECommerce.Domain"]
