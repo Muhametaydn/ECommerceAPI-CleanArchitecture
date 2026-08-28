@@ -1,5 +1,8 @@
 <div align="center">
 
+[![Dil: Türkçe](https://img.shields.io/badge/Dil-Türkçe-red?style=for-the-badge)](README.md)
+[![Language: English](https://img.shields.io/badge/Language-English-blue?style=for-the-badge)](README.en.md)
+
 # 🛒 ECommerce API
 
 **.NET 8** ile geliştirilmiş, **Clean Architecture** ve **CQRS** desenlerini kullanan  
