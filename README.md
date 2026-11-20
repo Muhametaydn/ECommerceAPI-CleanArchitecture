@@ -333,7 +333,7 @@ MIT - Detaylar için [LICENSE](LICENSE) dosyasına bakın.
 
 - PostgreSQL ve RabbitMQ parolalarını ortam değişkenleriyle (`ConnectionStrings__DefaultConnection`, `RabbitMQ__Password`) verin. Yerel geliştirmede git tarafından yok sayılan `src/ECommerce.API/appsettings.Development.json` kullanılabilir. Bu dosya Docker imajına dahil edilmez. Gerçek ortamlarda demo kimlik bilgilerini kullanmayın.
 - SMTP için varsayılan `EmailSettings:EnableSsl` değeri `true` olur. TLS kapatma yalnızca yerel MailHog içindir: geliştirme ayarları ve yerel Docker Compose bunu açıkça `false` olarak ayarlar. Gerçek SMTP sunucusunda TLS'i açık tutun; SonarQube SMTP bulgusunu kullanılan ortamla birlikte değerlendirin.
-- Auth işlemleri bağlantının `RemoteIpAddress` değerini kullanır. Reverse proxy arkasında yayınlamadan önce Forwarded Headers Middleware'i yalnızca bilinen proxy adreslerine güvenecek şekilde yapılandırın; istemciden gelen `X-Forwarded-For` başlığını doğrudan kullanmayın.
+- Auth işlemleri ve rate limit istemci IP'sini kullanır. `X-Forwarded-For` yalnızca `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` içindeki proxy'lerden kabul edilir (varsayılan: yalnızca loopback). Reverse proxy arkasında yayınlarken frontend sunucusunun adresini bu ayara ekleyin.
 - Anonim sepet için `X-Cart-Id` ve birleştirme isteğindeki `AnonymousCartId`, boş olmayan `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` biçiminde UUID olmalıdır. İstemci, oluşturulan sepet kimliğinin `cart:anon:` önekinden sonraki UUID bölümünü sonraki isteklerde korumalıdır. Bu kimlik gizli bir erişim belirteci gibi ele alınmalıdır.
 - ETag SHA-256 kullanır. `.sonarqube/` yerel analiz çıktısıdır; git'e ve Docker imajına dahil edilmez. SonarQube'deki test kapsamı için ayrıca coverage raporu üretip tarayıcıya vermek gerekir.
 
@@ -350,3 +350,68 @@ Script sırasıyla analiz başlangıcı, tam derleme, tüm test projelerinde cov
 Her çalıştırmanın çıktısı git tarafından yok sayılan `test-results/sonar/<run-id>/` klasöründe tutulur; önceki raporlar yeni analize karıştırılmaz. Derleme veya test başarısız olursa script yükleme adımına geçmez. CI test adımları da aynı rapor biçimini kullanır; yerel SonarQube sunucusuna CI üzerinden otomatik yükleme yapılmaz.
 
 Coverage, geçen test sayısı değil, çalıştırılan uygulama kodunun oranıdır. Raporun aktarılması %80 eşiğinin geçileceğini garanti etmez; ölçümden sonra eksik test senaryoları belirlenir. PostgreSQL/Redis testleri için `ECOMMERCE_TEST_POSTGRES` ve `ECOMMERCE_TEST_REDIS` yalnızca ayrı test servislerini göstermelidir; bu değişkenler yokken ilgili isteğe bağlı testler atlanabilir.
+
+---
+
+## 🔒 Güvenlik ve Kalite Denetimi (Kasım 2026)
+
+Backend (bu repo) ve frontend (`ECommerceFrontend`) birlikte uçtan uca denetlendi. Bulunan her açık ve hata için önce onu yakalayan bir test yazıldı, sonra düzeltildi.
+
+### Test sonuçları
+
+| | Denetim öncesi | Denetim sonrası |
+|---|---|---|
+| Backend testleri | 330 | **405** (Unit 300, Integration 101, Architecture 4), hepsi geçiyor |
+| Frontend unit testleri | 104 | **113**, hepsi geçiyor |
+| Frontend E2E (Playwright) | — | **28/28** geçiyor (storefront, admin, seller) |
+| Kapsam: Application | %61 | **%72** |
+| Kapsam: Domain | %83 | **%88** |
+| Bağımlılık açıkları (NuGet / npm) | 2 yüksek / 9 (1 kritik) | **0 / 1** (aşağıya bakın) |
+
+Yeni test grupları: rate limit ve proxy güveni, login kilitleme, refresh token yeniden kullanımı, hata yanıtı sızıntısı, sipariş/kupon/ödeme/stok yaşam döngüsü, iptal ve iade, ürün silme, yorum ve adres sahipliği (IDOR), kupon doğrulama, sepet güncelleme, Outbox job, open redirect.
+
+### Kapatılan güvenlik açıkları
+
+| # | Açık | Etki | Çözüm |
+|---|---|---|---|
+| 1 | Rate limit tüm siteye tek sayaçtı | Bir kişinin dakikada 5 hatalı girişi **tüm kullanıcıların** girişini engelliyordu | İstemci başına limit (IP / kullanıcı). `X-Forwarded-For` yalnızca güvenilir proxy'den kabul edilir, frontend başlığı iletir |
+| 2 | Repoda açık JWT anahtarı | Production'da herkes sahte **Admin** token üretebilirdi | Anahtar boş, kısa veya örnek değerdeyse API başlamaz |
+| 3 | Production'da bilinen şifreli demo admin | `Admin123!` ile yönetici girişi | Demo hesaplar yalnızca Development ortamında oluşur |
+| 4 | Brute-force koruması yok | Sınırsız şifre denemesi | 5 hatalı denemede 15 dk hesap kilidi |
+| 5 | Refresh token çalınması fark edilmiyordu | Çalınan token sessizce kullanılabilirdi | Rotasyonla değişmiş token tekrar kullanılırsa tüm oturumlar kapanır (çoklu sekme için 30 sn tolerans) |
+| 6 | `revoke-token` sahiplik kontrolü yoktu | Başkasının oturumu kapatılabilirdi | Yalnızca kendi token'ı iptal edilebilir |
+| 7 | Hata yanıtlarında iç ayrıntı | EF/LINQ ayrıntıları ve dosya yolları istemciye gidiyordu | Yalnızca uygulama kodunun mesajları gösterilir, diğerleri genel 500 döner |
+| 8 | Frontend open redirect | `/giris?redirect=/\evil.com` girişten sonra saldırgan sitesine yönlendiriyordu | Yönlendirme sabit bir kökle çözümlenip doğrulanıyor |
+| 9 | Next.js kritik RCE ve diğer açıklar | Image Optimizer üzerinden uzaktan kod çalıştırma | next 15.5.27 → 15.5.29, follow-redirects → 1.16.3, AutoMapper 16.1.1 → 16.3.0 |
+| 10 | Login route'u backend hatasını gösteriyordu | İç adres ve bağlantı bilgisi sızıyordu | Genel mesaj döner, ayrıntı sunucu loguna yazılır |
+
+### Düzeltilen mantık hataları
+
+- **Ürün silmek, o ürünü içeren tüm eski siparişlerin satırlarını siliyordu** (FK `Cascade`). FK artık `Restrict` (migration `RestrictOrderItemProductDelete`). Siparişte geçen ürün silinmez, satıştan kaldırılır.
+- İptal edilen sipariş kupon kullanım hakkını geri vermiyordu.
+- Yüzdelik indirimler kuruşa yuvarlanmıyordu (33,3333 TL gibi tutarlar çıkıyordu).
+- İade durumu doğrudan atanıyordu, müşteriye iade e-postası gitmiyordu. Artık `Order.MarkAsRefunded()` ile yapılıyor ve event yayınlanıyor.
+- Kargodaki sipariş domain kuralında iptal edilebiliyordu. Tamamlanmış ödeme "başarısız" yapılabiliyordu.
+- Sepet birleştirilince ürün görselleri kayboluyordu. Satıştan kalkmış ürünün sepet miktarı artırılabiliyordu.
+- Outbox, broker'ın gerçek hatası yerine anlamsız bir reflection mesajı kaydediyordu.
+- `NotFoundException` mesajı bozuktu.
+- `DbSet<User>` kaldırıldıktan sonra EF, `Users` tablosunu yeniden adlandırmaya çalışıyordu. Tablo adı sabitlendi.
+
+### Bilinen ve kabul edilen kalan riskler
+
+- **Zod 3 (frontend):** Büyük dizilerin doğrulanmasında bellek tüketimi açığı var, düzeltmesi Zod 4 gerektiriyor. Formlarda dizi doğrulanmadığı için istismar yolu yok. Major yükseltme ayrıca planlanacak.
+- **Ödeme simülasyon:** Sipariş onaylanınca ödeme otomatik "tamamlandı" sayılıyor. Gerçek ödeme sağlayıcısı entegrasyonuna kadar bu tasarım böyle kalıyor.
+- Elasticsearch, e-posta ve RabbitMQ consumer sınıfları için henüz test yok. Bunlar gerçek servisle integration test gerektiriyor.
+
+### Testleri çalıştırma
+
+```bash
+# Backend (PostgreSQL/Redis testleri için ayrı, geçici test servisleri)
+ECOMMERCE_TEST_POSTGRES="Host=localhost;Port=55432;Username=postgres;Password=..." \
+ECOMMERCE_TEST_REDIS="localhost:56379" \
+dotnet test ECommerceAPI.sln --settings coverage.runsettings
+
+# Frontend (ECommerceFrontend klasöründe)
+pnpm test && pnpm typecheck && pnpm lint
+pnpm build && pnpm test:e2e   # Playwright tarayıcısı yoksa: E2E_CHROME_PATH=<chrome.exe yolu>
+```

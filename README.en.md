@@ -303,3 +303,68 @@ ECommerceAPI/
 ## 📄 License
 
 MIT — see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🔒 Security & Quality Audit (November 2026)
+
+The backend (this repo) and the frontend (`ECommerceFrontend`) were audited end to end. For every vulnerability and bug, a test that catches it was written first, then the fix.
+
+### Test results
+
+| | Before | After |
+|---|---|---|
+| Backend tests | 330 | **405** (Unit 300, Integration 101, Architecture 4), all passing |
+| Frontend unit tests | 104 | **113**, all passing |
+| Frontend E2E (Playwright) | — | **28/28** passing (storefront, admin, seller) |
+| Coverage: Application | 61% | **72%** |
+| Coverage: Domain | 83% | **88%** |
+| Dependency advisories (NuGet / npm) | 2 high / 9 (1 critical) | **0 / 1** (see below) |
+
+New test groups: rate limiting and proxy trust, login lockout, refresh-token reuse, error-response leakage, order/coupon/payment/stock lifecycle, cancellation and refund, product deletion, review and address ownership (IDOR), coupon validation, cart updates, the Outbox job, open redirect.
+
+### Vulnerabilities fixed
+
+| # | Issue | Impact | Fix |
+|---|---|---|---|
+| 1 | Rate limits were one global counter | 5 failed logins from anyone blocked login for **every user** | Per-client limits (IP / user). `X-Forwarded-For` is trusted only from known proxies; the frontend forwards it |
+| 2 | Public JWT key in the repo | Anyone could forge **Admin** tokens in production | The API refuses to start with an empty, short or placeholder key |
+| 3 | Demo admin with a known password in production | Admin login with `Admin123!` | Demo accounts are seeded only in Development |
+| 4 | No brute-force protection | Unlimited password guessing | 15-minute lockout after 5 failed attempts |
+| 5 | Refresh-token theft went unnoticed | A stolen token could be used silently | Reusing a rotated token revokes all sessions (30 s grace for multiple tabs) |
+| 6 | `revoke-token` had no ownership check | Other users' sessions could be revoked | Only the caller's own tokens can be revoked |
+| 7 | Internal details in error responses | EF/LINQ internals and file paths reached clients | Only application-code messages are shown; others return a generic 500 |
+| 8 | Frontend open redirect | `/giris?redirect=/\evil.com` sent users to an attacker site after login | Redirects are resolved against a fixed origin and validated |
+| 9 | Next.js critical RCE and other advisories | Remote code execution via the Image Optimizer | next 15.5.27 → 15.5.29, follow-redirects → 1.16.3, AutoMapper 16.1.1 → 16.3.0 |
+| 10 | Login route exposed backend errors | Internal addresses and connection details leaked | Generic message to the browser; details go to the server log |
+
+### Logic bugs fixed
+
+- **Deleting a product deleted every historical order line containing it** (FK `Cascade`). The FK is now `Restrict` (migration `RestrictOrderItemProductDelete`); ordered products are taken off sale instead of deleted.
+- Cancelled orders did not give back their coupon use.
+- Percentage discounts were not rounded to cents (amounts like 33.3333 TL).
+- Refunds set the status directly, so no refund email was sent. They now go through `Order.MarkAsRefunded()`, which raises an event.
+- Shipped orders could be cancelled at the domain level; completed payments could be marked failed.
+- Cart merge dropped product images; the quantity of an off-sale product could still be raised.
+- The Outbox stored a meaningless reflection message instead of the broker's real error.
+- The `NotFoundException` message was malformed.
+- After `DbSet<User>` was removed, EF planned to rename the `Users` table; the table name is now pinned.
+
+### Known and accepted remaining risks
+
+- **Zod 3 (frontend):** a memory-exhaustion advisory for oversized arrays; the fix requires Zod 4. The forms validate no arrays, so there is no attack path. The major upgrade will be planned separately.
+- **Payments are simulated:** confirming an order marks its payment completed. This stays until a real payment provider is integrated.
+- Elasticsearch, email and RabbitMQ consumer classes have no tests yet; they need integration tests against the real services.
+
+### Running the tests
+
+```bash
+# Backend (separate, throwaway services for the PostgreSQL/Redis tests)
+ECOMMERCE_TEST_POSTGRES="Host=localhost;Port=55432;Username=postgres;Password=..." \
+ECOMMERCE_TEST_REDIS="localhost:56379" \
+dotnet test ECommerceAPI.sln --settings coverage.runsettings
+
+# Frontend (in the ECommerceFrontend folder)
+pnpm test && pnpm typecheck && pnpm lint
+pnpm build && pnpm test:e2e   # without Playwright's browser: E2E_CHROME_PATH=<path to chrome.exe>
+```
