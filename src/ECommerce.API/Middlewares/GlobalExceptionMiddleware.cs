@@ -65,14 +65,17 @@ namespace ECommerce.API.Middlewares
                     Detail = forbiddenEx.Message
                 },
 
-                UnauthorizedAccessException unauthorizedEx => new ProblemDetails
+                // Bu iki tip .NET/EF kütüphanelerince de fırlatılır (ör. dosya yolu, LINQ çeviri hatası).
+                // Mesajları yalnızca kendi kodumuzdan geliyorsa (bilinçli iş kuralı mesajı) gösterilir;
+                // aksi halde iç ayrıntı sızdırmamak için genel 500 döner.
+                UnauthorizedAccessException unauthorizedEx when IsThrownByApplicationCode(unauthorizedEx) => new ProblemDetails
                 {
                     Status = StatusCodes.Status401Unauthorized,
                     Title = "Yetkisiz Erişim",
                     Detail = unauthorizedEx.Message
                 },
 
-                InvalidOperationException invalidOpEx => new ProblemDetails
+                InvalidOperationException invalidOpEx when IsThrownByApplicationCode(invalidOpEx) => new ProblemDetails
                 {
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Geçersiz İşlem",
@@ -99,6 +102,9 @@ namespace ECommerce.API.Middlewares
             var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
             await context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, options), context.RequestAborted);
         }
+
+        internal static bool IsThrownByApplicationCode(Exception exception)
+            => exception.TargetSite?.DeclaringType?.FullName?.StartsWith("ECommerce.", StringComparison.Ordinal) == true;
 
 
 

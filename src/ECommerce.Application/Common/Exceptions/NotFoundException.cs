@@ -9,6 +9,6 @@ namespace ECommerce.Application.Common.Exceptions
     public class NotFoundException : Exception
     {
         public NotFoundException(string name, object key)
-            : base($"{name} ({key} bulunamadı. ID: {key}"){ }
+            : base($"{name} bulunamadı. ID: {key}") { }
     }
 }
