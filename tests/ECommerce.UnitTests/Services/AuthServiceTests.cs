@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Moq;
+using ECommerce.Application.Common.Interfaces;
 
 namespace ECommerce.UnitTests.Services;
 
@@ -18,6 +19,7 @@ public class AuthServiceTests : IDisposable
     private readonly ApplicationDbContext _context;
     private readonly AuthService _authService;
     private readonly JwtSettings _jwtSettings;
+    private readonly Mock<IAccountSecurityService> _accountSecurityServiceMock;
 
     public AuthServiceTests()
     {
@@ -43,13 +45,14 @@ public class AuthServiceTests : IDisposable
         };
 
         var jwtOptions = Options.Create(_jwtSettings);
-        _authService = new AuthService(_userManagerMock.Object, _context, jwtOptions);
+        _accountSecurityServiceMock = new Mock<IAccountSecurityService>();
+        _authService = new AuthService(_userManagerMock.Object, _context, jwtOptions, _accountSecurityServiceMock.Object);
     }
 
     // ── REGISTER TESTS ───────────────────────────────────────────────────────
 
     [Fact]
-    public async Task RegisterAsync_WithValidData_ReturnsAuthResponse()
+    public async Task RegisterAsync_WithValidData_ReturnsRegistrationResponseAndRequestsConfirmation()
     {
         // Arrange
         var request = new RegisterRequest
@@ -70,19 +73,14 @@ public class AuthServiceTests : IDisposable
         _userManagerMock.Setup(x => x.AddToRoleAsync(It.IsAny<ApplicationUser>(), AppRoles.Customer))
             .ReturnsAsync(IdentityResult.Success);
 
-        _userManagerMock.Setup(x => x.GetRolesAsync(It.IsAny<ApplicationUser>()))
-            .ReturnsAsync(new List<string> { AppRoles.Customer });
-
         // Act
         var result = await _authService.RegisterAsync(request, "127.0.0.1");
 
         // Assert
         result.Should().NotBeNull();
         result.Email.Should().Be(request.Email);
-        result.FullName.Should().Be("Test User");
-        result.AccessToken.Should().NotBeNullOrEmpty();
-        result.RefreshToken.Should().NotBeNullOrEmpty();
-        result.Roles.Should().Contain(AppRoles.Customer);
+        result.Message.Should().Contain("Doğrulama");
+        _accountSecurityServiceMock.Verify(service => service.RequestEmailConfirmationAsync(request.Email, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -140,6 +138,7 @@ public class AuthServiceTests : IDisposable
     {
         // Arrange
         var user = ApplicationUser.Create("Test", "User", "test@example.com", "testuser");
+        user.EmailConfirmed = true;
 
         _userManagerMock.Setup(x => x.FindByEmailAsync("test@example.com"))
             .ReturnsAsync(user);
@@ -185,10 +184,26 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task LoginAsync_WithUnconfirmedEmail_ThrowsUnauthorizedAccessException()
+    {
+        var user = ApplicationUser.Create("Test", "User", "test@example.com", "testuser");
+        _userManagerMock.Setup(x => x.FindByEmailAsync("test@example.com")).ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.CheckPasswordAsync(user, "Test1234!@#")).ReturnsAsync(true);
+
+        var action = () => _authService.LoginAsync(
+            new LoginRequest { Email = "test@example.com", Password = "Test1234!@#" },
+            "127.0.0.1");
+
+        var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(action);
+        exception.Message.Should().Contain("doğrulamanız");
+    }
+
+    [Fact]
     public async Task LoginAsync_WithWrongPassword_ThrowsUnauthorizedAccessException()
     {
         // Arrange
         var user = ApplicationUser.Create("Test", "User", "test@example.com", "testuser");
+        user.EmailConfirmed = true;
 
         _userManagerMock.Setup(x => x.FindByEmailAsync("test@example.com"))
             .ReturnsAsync(user);
@@ -235,6 +250,7 @@ public class AuthServiceTests : IDisposable
     {
         // Arrange
         var user = ApplicationUser.Create("Test", "User", "test@example.com", "testuser");
+        user.EmailConfirmed = true;
         var refreshToken = RefreshToken.Create(user.Id, "valid-token-123", 7, "127.0.0.1");
 
         _context.RefreshTokens.Add(refreshToken);

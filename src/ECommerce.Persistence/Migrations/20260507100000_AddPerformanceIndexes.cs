@@ -1,77 +1,42 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using ECommerce.Persistence.Context;
 
 #nullable disable
 
 namespace ECommerce.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20260507100000_AddPerformanceIndexes")]
     public partial class AddPerformanceIndexes : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // ── Products ──────────────────────────────────────────────────────
-            // Kategori bazlı filtreleme
-            migrationBuilder.CreateIndex(
-                name: "IX_Products_CategoryId",
-                table: "Products",
-                column: "CategoryId");
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS \"IX_Products_CategoryId\" ON \"Products\" (\"CategoryId\");");
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS \"IX_Products_IsActive_Price\" ON \"Products\" (\"IsActive\", \"Price\");");
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS \"IX_Products_IsActive_CreatedAt\" ON \"Products\" (\"IsActive\", \"CreatedAt\");");
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS \"IX_Products_CategoryId_IsActive_Price\" ON \"Products\" (\"CategoryId\", \"IsActive\", \"Price\");");
 
-            // Aktif ürün + fiyat sıralaması
-            migrationBuilder.CreateIndex(
-                name: "IX_Products_IsActive_Price",
-                table: "Products",
-                columns: new[] { "IsActive", "Price" });
-
-            // Aktif ürün + tarih sıralaması (varsayılan sıralama)
-            migrationBuilder.CreateIndex(
-                name: "IX_Products_IsActive_CreatedAt",
-                table: "Products",
-                columns: new[] { "IsActive", "CreatedAt" });
-
-            // Aktif ürün + kategori + fiyat aralığı
-            migrationBuilder.CreateIndex(
-                name: "IX_Products_CategoryId_IsActive_Price",
-                table: "Products",
-                columns: new[] { "CategoryId", "IsActive", "Price" });
-
-            // ── Orders ────────────────────────────────────────────────────────
-            // Kullanıcı siparişleri
-            migrationBuilder.CreateIndex(
-                name: "IX_Orders_UserId",
-                table: "Orders",
-                column: "UserId");
-
-            // Kullanıcı + durum filtresi
-            migrationBuilder.CreateIndex(
-                name: "IX_Orders_UserId_Status",
-                table: "Orders",
-                columns: new[] { "UserId", "Status" });
-
-            // Sipariş durum filtresi (admin sorguları)
-            migrationBuilder.CreateIndex(
-                name: "IX_Orders_Status",
-                table: "Orders",
-                column: "Status");
-
-            // Tarih sıralaması
-            migrationBuilder.CreateIndex(
-                name: "IX_Orders_CreatedAt",
-                table: "Orders",
-                column: "CreatedAt");
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS \"IX_Orders_UserId\" ON \"Orders\" (\"UserId\");");
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS \"IX_Orders_UserId_Status\" ON \"Orders\" (\"UserId\", \"Status\");");
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS \"IX_Orders_Status\" ON \"Orders\" (\"Status\");");
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS \"IX_Orders_CreatedAt\" ON \"Orders\" (\"CreatedAt\");");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(name: "IX_Products_CategoryId", table: "Products");
-            migrationBuilder.DropIndex(name: "IX_Products_IsActive_Price", table: "Products");
-            migrationBuilder.DropIndex(name: "IX_Products_IsActive_CreatedAt", table: "Products");
-            migrationBuilder.DropIndex(name: "IX_Products_CategoryId_IsActive_Price", table: "Products");
-            migrationBuilder.DropIndex(name: "IX_Orders_UserId", table: "Orders");
-            migrationBuilder.DropIndex(name: "IX_Orders_UserId_Status", table: "Orders");
-            migrationBuilder.DropIndex(name: "IX_Orders_Status", table: "Orders");
-            migrationBuilder.DropIndex(name: "IX_Orders_CreatedAt", table: "Orders");
+            migrationBuilder.Sql("DROP INDEX IF EXISTS \"IX_Orders_CreatedAt\";");
+            migrationBuilder.Sql("DROP INDEX IF EXISTS \"IX_Orders_Status\";");
+            migrationBuilder.Sql("DROP INDEX IF EXISTS \"IX_Orders_UserId_Status\";");
+            migrationBuilder.Sql("DROP INDEX IF EXISTS \"IX_Orders_UserId\";");
+
+            migrationBuilder.Sql("DROP INDEX IF EXISTS \"IX_Products_CategoryId_IsActive_Price\";");
+            migrationBuilder.Sql("DROP INDEX IF EXISTS \"IX_Products_IsActive_CreatedAt\";");
+            migrationBuilder.Sql("DROP INDEX IF EXISTS \"IX_Products_IsActive_Price\";");
+            migrationBuilder.Sql("DROP INDEX IF EXISTS \"IX_Products_CategoryId\";");
         }
     }
 }

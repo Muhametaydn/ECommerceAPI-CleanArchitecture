@@ -7,6 +7,7 @@ namespace ECommerce.Application.Features.Orders.DTOs
     /// </summary>
     public class CreateOrderRequest
     {
+        public Guid CheckoutRequestId { get; set; }
         public Guid ShippingAddressId { get; set; }
         public PaymentMethod PaymentMethod { get; set; }
         public string? Note { get; set; }

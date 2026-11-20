@@ -16,7 +16,7 @@ namespace ECommerce.Domain.Entities
         public string Country { get; set; } = "Türkiye";
 
         public Guid UserId { get; set; }
-        public User User { get; set; } = null!;
+        public ApplicationUser User { get; set; } = null!;
 
     }
 }

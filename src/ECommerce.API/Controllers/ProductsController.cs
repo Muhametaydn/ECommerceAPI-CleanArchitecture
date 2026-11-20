@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using System.Security.Claims;
 using ECommerce.Application.Common.Models;
 using ECommerce.Application.Features.Products.Commands.CreateProduct;
 using ECommerce.Application.Features.Products.DTOs;
@@ -7,6 +8,10 @@ using ECommerce.Application.Features.Products.Queries.GetProductById;
 using ECommerce.Application.Features.Products.Queries.SearchProducts;
 using ECommerce.Application.Features.Products.Commands.UpdateProduct;
 using ECommerce.Application.Features.Products.Commands.DeleteProduct;
+using ECommerce.Application.Features.Products.Commands.ApproveProduct;
+using ECommerce.Application.Features.Products.Commands.RejectProduct;
+using ECommerce.Application.Features.Products.Queries.GetAdminProducts;
+using ECommerce.Application.Features.Products.Queries.GetSellerProducts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -61,6 +66,8 @@ namespace ECommerce.API.Controllers
         [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Create([FromBody] CreateProductCommand command) {
+            command.RequesterId = GetUserId();
+            command.IsAdmin = User.IsInRole("Admin");
             var productId = await _mediator.Send(command);
             return CreatedAtAction(nameof(GetById), new { id = productId }, productId);
         }
@@ -88,7 +95,39 @@ namespace ECommerce.API.Controllers
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProductCommand command)
         {
             command.Id = id;
+            command.RequesterId = GetUserId();
+            command.IsAdmin = User.IsInRole("Admin");
             await _mediator.Send(command);
+            return NoContent();
+        }
+
+        [HttpGet("admin")]
+        [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(typeof(IReadOnlyList<ProductDTO>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAdminProducts()
+            => Ok(await _mediator.Send(new GetAdminProductsQuery()));
+
+        [HttpGet("mine")]
+        [Authorize(Policy = "SellerOrAdmin")]
+        [ProducesResponseType(typeof(IReadOnlyList<ProductDTO>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetMyProducts()
+            => Ok(await _mediator.Send(new GetSellerProductsQuery(GetUserId())));
+
+        [HttpPost("{id:guid}/approve")]
+        [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        public async Task<IActionResult> Approve(Guid id)
+        {
+            await _mediator.Send(new ApproveProductCommand(id));
+            return NoContent();
+        }
+
+        [HttpPost("{id:guid}/reject")]
+        [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        public async Task<IActionResult> Reject(Guid id)
+        {
+            await _mediator.Send(new RejectProductCommand(id));
             return NoContent();
         }
 
@@ -137,6 +176,13 @@ namespace ECommerce.API.Controllers
                 query, categoryId, minPrice, maxPrice, inStock,
                 sortBy, sortDescending, pageNumber, pageSize));
             return Ok(result);
+        }
+
+        private Guid GetUserId()
+        {
+            var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? throw new UnauthorizedAccessException("Kullanıcı bilgisi bulunamadı.");
+            return Guid.Parse(value);
         }
     }
 }

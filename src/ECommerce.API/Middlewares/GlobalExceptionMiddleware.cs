@@ -1,4 +1,4 @@
-﻿using ECommerce.Application.Common.Exceptions;
+using ECommerce.Application.Common.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
@@ -51,6 +51,20 @@ namespace ECommerce.API.Middlewares
                 }
                 },
 
+                ConflictException conflictEx => new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "İşlem Çakışması",
+                    Detail = conflictEx.Message
+                },
+
+                ForbiddenException forbiddenEx => new ProblemDetails
+                {
+                    Status = StatusCodes.Status403Forbidden,
+                    Title = "Erişim Reddedildi",
+                    Detail = forbiddenEx.Message
+                },
+
                 UnauthorizedAccessException unauthorizedEx => new ProblemDetails
                 {
                     Status = StatusCodes.Status401Unauthorized,
@@ -83,7 +97,7 @@ namespace ECommerce.API.Middlewares
             context.Response.StatusCode = problemDetails.Status ?? 500;
 
             var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-            await context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, options));
+            await context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, options), context.RequestAborted);
         }
 
 

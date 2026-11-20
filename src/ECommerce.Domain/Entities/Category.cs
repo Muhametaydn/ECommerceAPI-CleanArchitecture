@@ -49,9 +49,10 @@ namespace ECommerce.Domain.Entities
                 .Replace("Ş", "s").Replace("Ö", "o").Replace("Ç", "c");
 
             // Alfanumerik olmayan karakterleri tire ile degistir
-            slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
-            slug = Regex.Replace(slug, @"\s+", "-");
-            slug = Regex.Replace(slug, @"-+", "-");
+            var timeout = TimeSpan.FromMilliseconds(100);
+            slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "", RegexOptions.NonBacktracking, timeout);
+            slug = Regex.Replace(slug, @"\s+", "-", RegexOptions.NonBacktracking, timeout);
+            slug = Regex.Replace(slug, @"-+", "-", RegexOptions.NonBacktracking, timeout);
             slug = slug.Trim('-');
 
             return slug;

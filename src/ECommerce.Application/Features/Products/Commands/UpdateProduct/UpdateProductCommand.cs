@@ -15,7 +15,10 @@ namespace ECommerce.Application.Features.Products.Commands.UpdateProduct
         public decimal Price { get; set; }
         public int StockQuantity { get; set; }
         public string SKU { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
         public bool IsActive { get; set; }
         public Guid CategoryId { get; set; }
+        public Guid RequesterId { get; set; }
+        public bool IsAdmin { get; set; }
     }
 }

@@ -1,4 +1,3 @@
-﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,144 +10,46 @@ namespace ECommerce.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "CouponCode",
-                table: "Orders",
-                type: "character varying(50)",
-                maxLength: 50,
-                nullable: true);
+            migrationBuilder.Sql("ALTER TABLE \"Orders\" ADD COLUMN IF NOT EXISTS \"CouponCode\" character varying(50) NULL;");
+            migrationBuilder.Sql("ALTER TABLE \"Orders\" ADD COLUMN IF NOT EXISTS \"DiscountAmount\" numeric(18,2) NOT NULL DEFAULT 0;");
+            migrationBuilder.Sql("ALTER TABLE \"Coupons\" ADD COLUMN IF NOT EXISTS \"IsActive\" boolean NOT NULL DEFAULT TRUE;");
 
-            migrationBuilder.AddColumn<decimal>(
-                name: "DiscountAmount",
-                table: "Orders",
-                type: "numeric(18,2)",
-                nullable: false,
-                defaultValue: 0m);
+            migrationBuilder.Sql("ALTER TABLE \"Categories\" ALTER COLUMN \"Description\" TYPE character varying(500);");
+            migrationBuilder.Sql("ALTER TABLE \"Categories\" ADD COLUMN IF NOT EXISTS \"Depth\" integer NOT NULL DEFAULT 1;");
+            migrationBuilder.Sql("ALTER TABLE \"Categories\" ADD COLUMN IF NOT EXISTS \"IsActive\" boolean NOT NULL DEFAULT TRUE;");
+            migrationBuilder.Sql("ALTER TABLE \"Categories\" ADD COLUMN IF NOT EXISTS \"SortOrder\" integer NOT NULL DEFAULT 0;");
 
-            migrationBuilder.AddColumn<bool>(
-                name: "IsActive",
-                table: "Coupons",
-                type: "boolean",
-                nullable: false,
-                defaultValue: true);
+            migrationBuilder.Sql("""
+                UPDATE "Categories"
+                SET "Depth" = 1,
+                    "IsActive" = TRUE,
+                    "SortOrder" = CASE "Id"
+                        WHEN 'a1111111-1111-1111-1111-111111111111' THEN 0
+                        WHEN 'b2222222-2222-2222-2222-222222222222' THEN 1
+                        WHEN 'c3333333-3333-3333-3333-333333333333' THEN 2
+                        ELSE "SortOrder"
+                    END
+                WHERE "Id" IN (
+                    'a1111111-1111-1111-1111-111111111111',
+                    'b2222222-2222-2222-2222-222222222222',
+                    'c3333333-3333-3333-3333-333333333333'
+                );
+                """);
 
-            migrationBuilder.AlterColumn<string>(
-                name: "Description",
-                table: "Categories",
-                type: "character varying(500)",
-                maxLength: 500,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
-
-            migrationBuilder.AddColumn<int>(
-                name: "Depth",
-                table: "Categories",
-                type: "integer",
-                nullable: false,
-                defaultValue: 1);
-
-            migrationBuilder.AddColumn<bool>(
-                name: "IsActive",
-                table: "Categories",
-                type: "boolean",
-                nullable: false,
-                defaultValue: true);
-
-            migrationBuilder.AddColumn<int>(
-                name: "SortOrder",
-                table: "Categories",
-                type: "integer",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.UpdateData(
-                table: "Categories",
-                keyColumn: "Id",
-                keyValue: new Guid("a1111111-1111-1111-1111-111111111111"),
-                columns: new[] { "CreatedAt", "Depth", "IsActive" },
-                values: new object[] { new DateTime(2026, 5, 29, 14, 13, 43, 923, DateTimeKind.Utc).AddTicks(9578), 1, true });
-
-            migrationBuilder.UpdateData(
-                table: "Categories",
-                keyColumn: "Id",
-                keyValue: new Guid("b2222222-2222-2222-2222-222222222222"),
-                columns: new[] { "CreatedAt", "Depth", "IsActive", "SortOrder" },
-                values: new object[] { new DateTime(2026, 5, 29, 14, 13, 43, 923, DateTimeKind.Utc).AddTicks(9584), 1, true, 1 });
-
-            migrationBuilder.UpdateData(
-                table: "Categories",
-                keyColumn: "Id",
-                keyValue: new Guid("c3333333-3333-3333-3333-333333333333"),
-                columns: new[] { "CreatedAt", "Depth", "IsActive", "SortOrder" },
-                values: new object[] { new DateTime(2026, 5, 29, 14, 13, 43, 923, DateTimeKind.Utc).AddTicks(9588), 1, true, 2 });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Categories_ParentCategoryId_SortOrder",
-                table: "Categories",
-                columns: new[] { "ParentCategoryId", "SortOrder" });
+            migrationBuilder.Sql("CREATE INDEX IF NOT EXISTS \"IX_Categories_ParentCategoryId_SortOrder\" ON \"Categories\" (\"ParentCategoryId\", \"SortOrder\");");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_Categories_ParentCategoryId_SortOrder",
-                table: "Categories");
-
-            migrationBuilder.DropColumn(
-                name: "CouponCode",
-                table: "Orders");
-
-            migrationBuilder.DropColumn(
-                name: "DiscountAmount",
-                table: "Orders");
-
-            migrationBuilder.DropColumn(
-                name: "IsActive",
-                table: "Coupons");
-
-            migrationBuilder.DropColumn(
-                name: "Depth",
-                table: "Categories");
-
-            migrationBuilder.DropColumn(
-                name: "IsActive",
-                table: "Categories");
-
-            migrationBuilder.DropColumn(
-                name: "SortOrder",
-                table: "Categories");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Description",
-                table: "Categories",
-                type: "text",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(500)",
-                oldMaxLength: 500);
-
-            migrationBuilder.UpdateData(
-                table: "Categories",
-                keyColumn: "Id",
-                keyValue: new Guid("a1111111-1111-1111-1111-111111111111"),
-                column: "CreatedAt",
-                value: new DateTime(2026, 4, 24, 17, 48, 36, 860, DateTimeKind.Utc).AddTicks(5022));
-
-            migrationBuilder.UpdateData(
-                table: "Categories",
-                keyColumn: "Id",
-                keyValue: new Guid("b2222222-2222-2222-2222-222222222222"),
-                column: "CreatedAt",
-                value: new DateTime(2026, 4, 24, 17, 48, 36, 860, DateTimeKind.Utc).AddTicks(5024));
-
-            migrationBuilder.UpdateData(
-                table: "Categories",
-                keyColumn: "Id",
-                keyValue: new Guid("c3333333-3333-3333-3333-333333333333"),
-                column: "CreatedAt",
-                value: new DateTime(2026, 4, 24, 17, 48, 36, 860, DateTimeKind.Utc).AddTicks(5027));
+            migrationBuilder.Sql("DROP INDEX IF EXISTS \"IX_Categories_ParentCategoryId_SortOrder\";");
+            migrationBuilder.Sql("ALTER TABLE \"Orders\" DROP COLUMN IF EXISTS \"CouponCode\";");
+            migrationBuilder.Sql("ALTER TABLE \"Orders\" DROP COLUMN IF EXISTS \"DiscountAmount\";");
+            migrationBuilder.Sql("ALTER TABLE \"Coupons\" DROP COLUMN IF EXISTS \"IsActive\";");
+            migrationBuilder.Sql("ALTER TABLE \"Categories\" DROP COLUMN IF EXISTS \"Depth\";");
+            migrationBuilder.Sql("ALTER TABLE \"Categories\" DROP COLUMN IF EXISTS \"IsActive\";");
+            migrationBuilder.Sql("ALTER TABLE \"Categories\" DROP COLUMN IF EXISTS \"SortOrder\";");
+            migrationBuilder.Sql("ALTER TABLE \"Categories\" ALTER COLUMN \"Description\" TYPE text;");
         }
     }
 }

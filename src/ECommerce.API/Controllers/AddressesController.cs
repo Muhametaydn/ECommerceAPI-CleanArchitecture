@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using ECommerce.Application.Features.Addresses.Commands.CreateAddress;
 using ECommerce.Application.Features.Addresses.Commands.DeleteAddress;
@@ -108,8 +109,13 @@ namespace ECommerce.API.Controllers
         private Guid GetUserId()
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
                 ?? throw new UnauthorizedAccessException("Kullanıcı bilgisi bulunamadı.");
-            return Guid.Parse(userIdClaim);
+
+            if (!Guid.TryParse(userIdClaim, out var userId))
+                throw new UnauthorizedAccessException("Geçersiz kullanıcı bilgisi.");
+
+            return userId;
         }
     }
 

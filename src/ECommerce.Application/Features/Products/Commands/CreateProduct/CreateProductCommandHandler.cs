@@ -14,19 +14,22 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
     private readonly ICacheService _cacheService;
     private readonly ISearchService _searchService;
     private readonly IMapper _mapper;
+    private readonly IMarketplaceSettingsService _marketplaceSettings;
 
     public CreateProductCommandHandler(
         IProductRepository productRepository,
         IUnitOfWork unitOfWork,
         ICacheService cacheService,
         ISearchService searchService,
-        IMapper mapper)
+        IMapper mapper,
+        IMarketplaceSettingsService marketplaceSettings)
     {
         _productRepository = productRepository;
         _unitOfWork = unitOfWork;
         _cacheService = cacheService;
         _searchService = searchService;
         _mapper = mapper;
+        _marketplaceSettings = marketplaceSettings;
     }
 
     public async Task<Guid> Handle(CreateProductCommand request, CancellationToken cancellationToken)
@@ -42,14 +45,23 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             CategoryId = request.CategoryId,
         };
 
+        product.UpdateImage(request.ImageUrl);
+
+        if (!request.IsAdmin)
+        {
+            var settings = await _marketplaceSettings.GetAsync(cancellationToken);
+            product.AssignSeller(request.RequesterId, settings.AutoApproveSellerProducts);
+        }
+
         await _productRepository.AddAsync(product);
         await _unitOfWork.SaveChangesAsync();
 
-        // Paralel: Redis cache temizle + Elasticsearch indexle
-        var searchDoc = _mapper.Map<ProductSearchDocument>(product);
-        await Task.WhenAll(
-            _cacheService.RemoveByPrefixAsync("products:list:", cancellationToken),
-            _searchService.IndexProductAsync(searchDoc, cancellationToken));
+        await _cacheService.RemoveByPrefixAsync("products:list:", cancellationToken);
+        if (product.IsActive && product.ApprovalStatus == Domain.Enums.ProductApprovalStatus.Approved)
+        {
+            var searchDoc = _mapper.Map<ProductSearchDocument>(product);
+            await _searchService.IndexProductAsync(searchDoc, cancellationToken);
+        }
 
         return product.Id;
     }

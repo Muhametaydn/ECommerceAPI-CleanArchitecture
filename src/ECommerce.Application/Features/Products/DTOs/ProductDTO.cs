@@ -15,7 +15,13 @@ namespace ECommerce.Application.Features.Products.DTOs
         public decimal Price { get; init; }
         public int StockQuantity { get; init; }
         public string SKU { get; init; } = string.Empty;
+        public string? ImageUrl { get; init; }
         public bool IsActive { get; init; }
+        public Domain.Enums.ProductApprovalStatus ApprovalStatus { get; init; }
+        public string ApprovalStatusText => ApprovalStatus.ToString();
+        public Guid? SellerId { get; init; }
+        public string? SellerName { get; init; }
+        public string? SellerEmail { get; init; }
         public Guid CategoryId { get; init; }
         public string CategoryName { get; init; } = string.Empty;
         public DateTime CreatedAt { get; init; }

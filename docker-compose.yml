@@ -102,8 +102,13 @@ services:
       - RabbitMQ__Username=guest
       - RabbitMQ__Password=guest
       - Elasticsearch__Uri=http://elasticsearch:9200
-      - Email__Host=mailhog
-      - Email__Port=1025
+      - EmailSettings__Host=mailhog
+      - EmailSettings__Port=1025
+      # Local MailHog only; real SMTP servers must use TLS.
+      - EmailSettings__EnableSsl=false
+      - EmailSettings__FrontendBaseUrl=http://localhost:3000
+      # Yalnızca bu yerel demo ortamında bilinen admin/satıcı hesaplarını oluşturur.
+      - SeedDemoUsers__Enabled=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,6 +119,8 @@ services:
     restart: unless-stopped
     volumes:
       - api_logs:/app/logs
+      - product_images:/app/wwwroot/uploads/products
+      - profile_images:/app/wwwroot/uploads/profiles
 
 volumes:
   postgres_data:
@@ -121,3 +128,5 @@ volumes:
   rabbitmq_data:
   elasticsearch_data:
   api_logs:
+  product_images:
+  profile_images:

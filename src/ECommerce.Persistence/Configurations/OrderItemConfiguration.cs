@@ -1,4 +1,4 @@
-﻿using ECommerce.Domain.Entities;
+using ECommerce.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -10,6 +10,8 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
     {
         builder.HasKey(oi => oi.Id);
 
+        builder.Property(oi => oi.Status).IsConcurrencyToken();
+
         builder.Property(oi => oi.UnitPrice)
             .IsRequired()
             .HasColumnType("decimal(18,2)");
@@ -18,5 +20,9 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
 
         builder.Property(oi => oi.ProductId)
             .IsRequired();
+
+        builder.Property(oi => oi.Status)
+            .IsRequired()
+            .HasConversion<int>();
     }
 }

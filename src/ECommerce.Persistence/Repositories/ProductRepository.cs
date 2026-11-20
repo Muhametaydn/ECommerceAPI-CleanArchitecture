@@ -15,7 +15,7 @@ namespace ECommerce.Persistence.Repositories
         {
             return await _dbSet
                 .AsNoTracking()
-                .Where(p => p.CategoryId == categoryId && p.IsActive)
+                .Where(p => p.CategoryId == categoryId && p.IsActive && p.ApprovalStatus == Domain.Enums.ProductApprovalStatus.Approved)
                 .ToListAsync();
         }
 
@@ -24,7 +24,7 @@ namespace ECommerce.Persistence.Repositories
             return await _dbSet
                 .AsNoTracking()
                 .Include(p => p.Reviews)
-                .FirstOrDefaultAsync(p => p.Id == productId);
+                .FirstOrDefaultAsync(p => p.Id == productId && p.IsActive && p.ApprovalStatus == Domain.Enums.ProductApprovalStatus.Approved);
         }
 
         public async Task<Product?> GetBySKUAsync(string sku)
@@ -47,7 +47,7 @@ namespace ECommerce.Persistence.Repositories
             var query = _dbSet
                 .AsNoTracking()
                 .Include(p => p.Category)
-                .Where(p => p.IsActive)
+                .Where(p => p.IsActive && p.ApprovalStatus == Domain.Enums.ProductApprovalStatus.Approved)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -91,7 +91,7 @@ namespace ECommerce.Persistence.Repositories
             decimal? minPrice,
             decimal? maxPrice)
         {
-            var query = _dbSet.AsNoTracking().Where(p => p.IsActive).AsQueryable();
+            var query = _dbSet.AsNoTracking().Where(p => p.IsActive && p.ApprovalStatus == Domain.Enums.ProductApprovalStatus.Approved).AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -122,7 +122,35 @@ namespace ECommerce.Persistence.Repositories
             return await _dbSet
                 .AsNoTracking()
                 .Include(p => p.Category)
+                .FirstOrDefaultAsync(p => p.Id == productId && p.IsActive && p.ApprovalStatus == Domain.Enums.ProductApprovalStatus.Approved);
+        }
+
+        public async Task<Product?> GetProductForManagementAsync(Guid productId)
+        {
+            return await _dbSet
+                .Include(p => p.Category)
+                .Include(p => p.Seller)
                 .FirstOrDefaultAsync(p => p.Id == productId);
+        }
+
+        public async Task<IReadOnlyList<Product>> GetAdminProductsAsync()
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Include(p => p.Seller)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<Product>> GetSellerProductsAsync(Guid sellerId)
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Where(p => p.SellerId == sellerId)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using ECommerce.Domain.Entities;
+using ECommerce.Domain.Entities;
 using ECommerce.Domain.Enums;
 using System;
 using System.Collections.Generic;
@@ -10,9 +10,12 @@ namespace ECommerce.Domain.Interfaces
 {
     public interface IOrderRepository : IGenericRepository<Order>
     {
+        Task<IReadOnlyList<Order>> GetAllOrdersAsync();
+        Task<IReadOnlyList<Order>> GetSellerOrdersAsync(Guid sellerId);
         Task<IReadOnlyList<Order>> GetOrdersByUserAsync(Guid userId);
         Task<IReadOnlyList<Order>> GetOrdersByStatusAsync(OrderStatus status);
         Task<Order?> GetOrderWithItemsAsync(Guid orderId);
+        Task<Order?> GetByCartCheckoutKeyAsync(string key);
         Task<Order?> GetByOrderNumberAsync(string orderNumber);
     }
 }

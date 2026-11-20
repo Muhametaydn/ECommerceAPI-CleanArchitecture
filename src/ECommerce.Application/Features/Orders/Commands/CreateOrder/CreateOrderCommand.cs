@@ -18,6 +18,7 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
         public string CartId { get; set; } = string.Empty;
 
         /// <summary>Teslimat adresi ID</summary>
+        public Guid CheckoutRequestId { get; set; }
         public Guid ShippingAddressId { get; set; }
 
         /// <summary>Ödeme yöntemi</summary>

@@ -35,8 +35,8 @@ namespace ECommerce.Domain.Valueobjects
 
         public static bool operator ==(Email? left, Email? right)
         {
-            if(left == null && right == null) return true;
-            if(left == null || right == null) return false;
+            if(left is null && right is null) return true;
+            if(left is null || right is null) return false;
 
             return left.Equals(right);
 

@@ -1,4 +1,4 @@
-﻿using ECommerce.Domain.Entities;
+using ECommerce.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
@@ -17,6 +17,7 @@ namespace ECommerce.Persistence.Configurations
             builder.Property(rt => rt.Token).HasMaxLength(500).IsRequired();
             builder.Property(rt => rt.CreatedByIp).HasMaxLength(50).IsRequired();
             builder.Property(rt => rt.ReplacedByToken).HasMaxLength(500);
+            builder.Property(rt => rt.RevokedAt).IsConcurrencyToken();
 
             builder.HasIndex(rt => rt.Token).IsUnique();
             builder.HasIndex(rt => rt.UserId);

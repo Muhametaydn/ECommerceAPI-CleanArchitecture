@@ -15,5 +15,8 @@ namespace ECommerce.Application.Features.Products.Commands.CreateProduct
         public int StockQuantity {  get; set; }
         public Guid CategoryId { get; set; }
         public string SKU { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        public Guid RequesterId { get; set; }
+        public bool IsAdmin { get; set; }
     }
 }

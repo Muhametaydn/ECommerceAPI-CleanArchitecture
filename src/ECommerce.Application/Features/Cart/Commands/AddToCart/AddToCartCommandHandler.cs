@@ -44,7 +44,7 @@ namespace ECommerce.Application.Features.Cart.Commands.AddToCart
                     $"Yetersiz stok. Mevcut stok: {product.StockQuantity}, " +
                     $"Sepetteki miktar: {existingItem?.Quantity ?? 0}, İstenen: {request.Quantity}");
 
-            cart.AddItem(request.ProductId, product.Name, product.Price, request.Quantity);
+            cart.AddItem(request.ProductId, product.Name, product.Price, request.Quantity, product.ImageUrl);
             await _cartService.SaveCartAsync(cart);
 
             return MapToDto(cart);
@@ -60,6 +60,7 @@ namespace ECommerce.Application.Features.Cart.Commands.AddToCart
             {
                 ProductId = i.ProductId,
                 ProductName = i.ProductName,
+                ProductImageUrl = i.ProductImageUrl,
                 UnitPrice = i.UnitPrice,
                 Quantity = i.Quantity,
                 SubTotal = i.SubTotal

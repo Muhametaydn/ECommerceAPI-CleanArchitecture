@@ -7,6 +7,7 @@ namespace ECommerce.Application.Interfaces
         Task<Cart?> GetCartAsync(string cartId);
         Task SaveCartAsync(Cart cart);
         Task DeleteCartAsync(string cartId);
+        Task<bool> DeleteCartIfUnchangedAsync(string cartId, Cart snapshot);
 
         /// <summary>
         /// Anonim sepeti kullanıcı sepetine birleştirir.

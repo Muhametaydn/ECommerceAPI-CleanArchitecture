@@ -23,7 +23,7 @@ namespace ECommerce.Application.Features.Addresses.Commands.UpdateAddress
                 ?? throw new NotFoundException("Adres", request.Id);
 
             if (address.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Bu adresi güncelleme yetkiniz yok.");
+                throw new ECommerce.Application.Common.Exceptions.ForbiddenException("Bu adresi güncelleme yetkiniz yok.");
 
             address.Tittle = request.Title;
             address.AddressLine = request.AddressLine;

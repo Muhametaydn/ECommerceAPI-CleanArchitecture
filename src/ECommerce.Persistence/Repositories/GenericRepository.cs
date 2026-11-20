@@ -21,7 +21,7 @@ namespace ECommerce.Persistence.Repositories
         /// <summary>
         /// Write işlemleri (Update/Delete) için — change tracking aktif.
         /// </summary>
-        public async Task<T> GetByIdAsync(Guid id)
+        public async Task<T?> GetByIdAsync(Guid id)
         {
             return await _dbSet.FindAsync(id);
         }
@@ -29,7 +29,7 @@ namespace ECommerce.Persistence.Repositories
         /// <summary>
         /// Read-only sorgu — AsNoTracking ile daha hızlı.
         /// </summary>
-        public async Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
+        public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
         {
             return await _dbSet.AsNoTracking().FirstOrDefaultAsync(predicate);
         }

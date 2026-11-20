@@ -29,8 +29,10 @@ RUN addgroup --system --gid 1001 appgroup \
 
 COPY --from=build /app/publish .
 
-# logs klasörü oluştur (Serilog file sink için)
-RUN mkdir -p /app/logs && chown -R appuser:appgroup /app/logs
+# Yazılabilir kalıcı klasörleri non-root API kullanıcısına hazırla.
+# Named volume ilk kez bağlandığında Docker bu sahipliği volume'a kopyalar.
+RUN mkdir -p /app/logs /app/wwwroot/uploads/products /app/wwwroot/uploads/profiles \
+ && chown -R appuser:appgroup /app/logs /app/wwwroot
 
 USER appuser
 

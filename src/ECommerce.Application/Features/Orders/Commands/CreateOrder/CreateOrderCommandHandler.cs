@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Logging;
 using AutoMapper;
 using ECommerce.Application.Common.Exceptions;
 using ECommerce.Application.Features.Orders.DTOs;
@@ -13,19 +16,26 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICartService _cartService;
         private readonly IMapper _mapper;
+        private readonly ILogger<CreateOrderCommandHandler> _logger;
 
         public CreateOrderCommandHandler(
             IUnitOfWork unitOfWork,
             ICartService cartService,
-            IMapper mapper)
+            IMapper mapper, ILogger<CreateOrderCommandHandler> logger)
         {
             _unitOfWork = unitOfWork;
             _cartService = cartService;
             _mapper = mapper;
+            _logger = logger;
         }
 
         public async Task<OrderDetailDTO> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
         {
+            var orderId = new Guid(SHA256.HashData(Encoding.UTF8.GetBytes($"checkout:{request.UserId:D}:{request.CheckoutRequestId:D}")).AsSpan(0, 16));
+            var previous = await _unitOfWork.Order.GetOrderWithItemsAsync(orderId);
+            if (previous is not null)
+                return await Replay(previous, request);
+
             // 1) Sepeti getir
             var cart = await _cartService.GetCartAsync(request.CartId)
                 ?? throw new InvalidOperationException("Sepet bulunamadı veya boş.");
@@ -33,10 +43,21 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
             if (!cart.Items.Any())
                 throw new InvalidOperationException("Sepet boş. Sipariş oluşturulamaz.");
 
+            var cartKey = CartKey(request, cart);
+            previous = await _unitOfWork.Order.GetByCartCheckoutKeyAsync(cartKey);
+            if (previous is not null)
+                return await Replay(previous, request);
+
+            var address = await _unitOfWork.Address.GetByIdAsync(request.ShippingAddressId)
+                ?? throw new NotFoundException("Adres", request.ShippingAddressId);
+            if (address.UserId != request.UserId)
+                throw new ForbiddenException("Bu teslimat adresini kullanma yetkiniz yok.");
+
             // 2) Sipariş oluştur
             var order = new Order
             {
-                Id = Guid.NewGuid(),
+                Id = orderId,
+                CartCheckoutKey = cartKey,
                 OrderNumber = Order.GenerateOrderNumber(),
                 UserId = request.UserId,
                 ShippingAddressId = request.ShippingAddressId,
@@ -106,16 +127,65 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
                 Status = Domain.Enums.PaymentStatus.Pending
             };
 
+            order.Payment = payment;
+
             // 7) Veritabanına kaydet
             await _unitOfWork.Order.AddAsync(order);
-            await _unitOfWork.SaveChangesAsync();
+            try
+            {
+                await _unitOfWork.SaveChangesAsync();
+            }
+            catch (ConflictException)
+            {
+                var winner = await _unitOfWork.Order.GetByCartCheckoutKeyAsync(cartKey);
+                if (winner is null) throw;
+                return await Replay(winner, request);
+            }
 
             // 8) Sepeti temizle
-            await _cartService.DeleteCartAsync(request.CartId);
+            await CleanupCart(request.CartId, cart, order.Id);
 
             // 9) Siparişi detaylarıyla birlikte getir ve döndür
             var savedOrder = await _unitOfWork.Order.GetOrderWithItemsAsync(order.Id);
             return _mapper.Map<OrderDetailDTO>(savedOrder);
+        }
+        private static string CartKey(CreateOrderCommand request, ECommerce.Domain.Entities.Cart cart)
+        {
+            var items = string.Join(";", cart.Items.OrderBy(i => i.ProductId).Select(i => $"{i.ProductId:D}:{i.Quantity}"));
+            return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{request.UserId:D}|{request.CartId}|{cart.UpdatedAt.ToUniversalTime():O}|{items}")));
+        }
+
+        private async Task<OrderDetailDTO> Replay(Order order, CreateOrderCommand request)
+        {
+            var requestedId = new Guid(SHA256.HashData(Encoding.UTF8.GetBytes($"checkout:{request.UserId:D}:{request.CheckoutRequestId:D}")).AsSpan(0, 16));
+            var differentRequest = order.Id != requestedId;
+            if (order.UserId != request.UserId || order.ShippingAddressId != request.ShippingAddressId
+                || order.Payment?.Method != request.PaymentMethod
+                || (order.CouponCode ?? "") != (request.CouponCode?.ToUpperInvariant() ?? "")
+                || (order.Note ?? "") != (request.Note ?? ""))
+                throw new ConflictException();
+            try
+            {
+                var currentCart = await _cartService.GetCartAsync(request.CartId);
+                if (currentCart is not null && CartKey(request, currentCart) == order.CartCheckoutKey)
+                    await CleanupCart(request.CartId, currentCart, order.Id);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Committed order {OrderId}: cart cleanup failed", order.Id);
+            }
+            if (differentRequest)
+                throw new ConflictException("Bu sepet için sipariş zaten oluşturuldu. Siparişlerinizi kontrol edin.");
+            return _mapper.Map<OrderDetailDTO>(order);
+        }
+
+        private async Task CleanupCart(string cartId, ECommerce.Domain.Entities.Cart snapshot, Guid orderId)
+        {
+            try { await _cartService.DeleteCartIfUnchangedAsync(cartId, snapshot); }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Committed order {OrderId}: cart cleanup failed", orderId);
+            }
         }
     }
 }

@@ -133,6 +133,7 @@ namespace ECommerce.API.Controllers
     {
         public string Title { get; set; } = string.Empty;
         public string Comment { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonRequired]
         public int Rating { get; set; }
     }
 
@@ -140,6 +141,7 @@ namespace ECommerce.API.Controllers
     {
         public string Title { get; set; } = string.Empty;
         public string Comment { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonRequired]
         public int Rating { get; set; }
     }
 }

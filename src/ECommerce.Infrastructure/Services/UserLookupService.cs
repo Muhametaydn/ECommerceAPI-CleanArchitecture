@@ -16,6 +16,11 @@ namespace ECommerce.Infrastructure.Services
             _logger = logger;
         }
 
+        public async Task<bool> ExistsAsync(Guid userId, CancellationToken ct = default)
+        {
+            return await _userManager.FindByIdAsync(userId.ToString()) is not null;
+        }
+
         public async Task<(string Email, string FullName)?> GetUserInfoAsync(Guid userId, CancellationToken ct = default)
         {
             var user = await _userManager.FindByIdAsync(userId.ToString());

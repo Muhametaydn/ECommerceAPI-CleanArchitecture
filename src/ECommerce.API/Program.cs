@@ -10,6 +10,9 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using ECommerce.Application;
+using ECommerce.Application.Common.Interfaces;
+using ECommerce.API.Jobs;
+using ECommerce.API.Services;
 using ECommerce.Infrastructure;
 using ECommerce.Infrastructure.DependencyInjection;
 using ECommerce.Persistence;
@@ -30,6 +33,7 @@ try
     Log.Information("ECommerce API başlatılıyor...");
 
     var builder = WebApplication.CreateBuilder(args);
+    builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
     // ── Serilog tam konfigürasyonu ────────────────────────────────────────────
     builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -65,7 +69,7 @@ try
         options.Password.RequireNonAlphanumeric = true;
         options.Password.RequiredLength = 8;
         options.User.RequireUniqueEmail = true;
-        options.SignIn.RequireConfirmedEmail = false;
+        options.SignIn.RequireConfirmedEmail = true;
     })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
@@ -89,13 +93,13 @@ try
 
     // OutboxProcessorJob'u DI'a kaydet
     builder.Services.AddScoped<OutboxProcessorJob>();
+    builder.Services.AddScoped<IProductImageStorage, LocalProductImageStorage>();
+    builder.Services.AddScoped<IProfileImageStorage, LocalProfileImageStorage>();
+    builder.Services.AddScoped<ProductImageCleanupJob>();
 
     // ── Authorization Policies ────────────────────────────────────────────────
-    builder.Services.AddAuthorizationBuilder()
-        .AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"))
-        .AddPolicy("SellerOrAdmin", policy => policy.RequireRole("Admin", "Seller"))
-        .AddPolicy("CustomerOnly", policy => policy.RequireRole("Customer"))
-        .AddPolicy("Authenticated", policy => policy.RequireAuthenticatedUser());
+    builder.Services.AddMarketplaceAuthorization();
+    builder.Services.AddHealthChecks();
 
     // ── Rate Limiting ─────────────────────────────────────────────────────────
     builder.Services.AddRateLimiter(options =>
@@ -197,7 +201,9 @@ try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.MigrateAsync();
-        await IdentitySeeder.SeedAsync(scope.ServiceProvider);
+        await IdentitySeeder.SeedAsync(
+            scope.ServiceProvider,
+            builder.Configuration.GetValue<bool>("SeedDemoUsers:Enabled"));
     }
 
     // ── Hangfire recurring job kaydı ─────────────────────────────────────────
@@ -206,6 +212,11 @@ try
         recurringJobId: "outbox-processor",
         methodCall: job => job.ProcessAsync(),
         cronExpression: "* * * * *",
+        options: new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+    recurringJobManager.AddOrUpdate<ProductImageCleanupJob>(
+        recurringJobId: "product-image-cleanup",
+        methodCall: job => job.ProcessAsync(CancellationToken.None),
+        cronExpression: "15 3 * * *",
         options: new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
 
     // ── Middleware pipeline ───────────────────────────────────────────────────
@@ -216,8 +227,10 @@ try
     }
 
     app.UseMiddleware<ECommerce.API.Middlewares.GlobalExceptionMiddleware>();
+    app.UseMiddleware<ECommerce.API.Middlewares.SecurityHeadersMiddleware>();
     app.UseMiddleware<ECommerce.API.Middlewares.ETagMiddleware>();
     app.UseHttpsRedirection();
+    app.UseStaticFiles();
 
     app.UseRateLimiter();
 
@@ -234,6 +247,7 @@ try
     }
 
     app.MapControllers();
+    app.MapHealthChecks("/health").DisableRateLimiting();
 
     Log.Information("ECommerce API hazır, istekler dinleniyor.");
     await app.RunAsync();

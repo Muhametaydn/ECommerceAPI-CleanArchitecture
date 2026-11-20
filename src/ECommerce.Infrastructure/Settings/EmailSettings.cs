@@ -8,8 +8,9 @@ namespace ECommerce.Infrastructure.Settings
         public string FromName { get; set; } = "ECommerce";
         public string Host { get; set; } = "localhost";
         public int Port { get; set; } = 1025;
-        public bool EnableSsl { get; set; } = false;
+        public bool EnableSsl { get; set; } = true;
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        public string FrontendBaseUrl { get; set; } = "http://localhost:3000";
     }
 }

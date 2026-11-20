@@ -37,8 +37,10 @@ namespace ECommerce.Persistence.Configurations
                 .IsRequired()
                 .HasMaxLength(100);
 
-
-
+            builder.HasOne(a => a.User)
+                .WithMany(u => u.Addresses)
+                .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
         }
     }

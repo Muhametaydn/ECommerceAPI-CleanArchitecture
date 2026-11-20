@@ -1,11 +1,17 @@
 using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using ECommerce.Persistence.Context;
 
 #nullable disable
 
 namespace ECommerce.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(ApplicationDbContext))]
+
+    [Migration("20260507000000_AddOutboxMessages")]
+
     public partial class AddOutboxMessages : Migration
     {
         /// <inheritdoc />

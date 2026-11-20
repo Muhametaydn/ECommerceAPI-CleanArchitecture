@@ -17,5 +17,13 @@ namespace ECommerce.Application.Common.Interfaces
 
         /// <summary>Admin'e düşük stok uyarısı</summary>
         Task SendLowStockAlertAsync(string adminEmail, string productName, int currentStock, CancellationToken ct = default);
+
+        /// <summary>Tek kullanımlık şifre sıfırlama bağlantısı</summary>
+        Task SendPasswordResetAsync(string toEmail, string toName, string resetUrl, CancellationToken ct = default);
+
+        /// <summary>Tek kullanımlık e-posta doğrulama bağlantısı</summary>
+        Task SendEmailChangeConfirmationAsync(string toEmail, string toName, string confirmationUrl, CancellationToken ct = default);
+
+        Task SendEmailConfirmationAsync(string toEmail, string toName, string confirmationUrl, CancellationToken ct = default);
     }
 }

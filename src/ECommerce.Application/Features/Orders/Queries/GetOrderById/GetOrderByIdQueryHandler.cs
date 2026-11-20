@@ -24,7 +24,7 @@ namespace ECommerce.Application.Features.Orders.Queries.GetOrderById
 
             // Admin değilse sadece kendi siparişini görebilir
             if (!request.IsAdmin && order.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Bu siparişi görüntüleme yetkiniz yok.");
+                throw new ECommerce.Application.Common.Exceptions.ForbiddenException("Bu siparişi görüntüleme yetkiniz yok.");
 
             return _mapper.Map<OrderDetailDTO>(order);
         }

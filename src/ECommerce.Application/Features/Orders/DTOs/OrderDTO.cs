@@ -45,4 +45,24 @@ namespace ECommerce.Application.Features.Orders.DTOs
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
     }
+
+    /// <summary>
+    /// Satıcı panelinde yalnızca ilgili satıcının ürünlerini gösteren sipariş özeti.
+    /// </summary>
+    public class SellerOrderDTO
+    {
+        public Guid Id { get; init; }
+        public string OrderNumber { get; init; } = string.Empty;
+        public OrderStatus Status { get; init; }
+        public string StatusText => Status.ToString();
+        public decimal SellerSubtotal { get; init; }
+        public int SellerTotalItems { get; init; }
+        public bool CanManageStatus { get; init; }
+        public bool ContainsOtherSellers { get; init; }
+        public string ShippingAddress { get; init; } = string.Empty;
+        public string ShippingCity { get; init; } = string.Empty;
+        public string ShippingDistrict { get; init; } = string.Empty;
+        public IReadOnlyList<OrderItemDTO> Items { get; init; } = Array.Empty<OrderItemDTO>();
+        public DateTime CreatedAt { get; init; }
+    }
 }

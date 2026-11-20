@@ -10,6 +10,8 @@ namespace ECommerce.Persistence.Configurations
         {
             builder.HasKey(x => x.Id);
 
+            builder.Property(p => p.StockQuantity).IsConcurrencyToken();
+
             builder.Property(p => p.Name)
                 .IsRequired()
                 .HasMaxLength(200);
@@ -24,6 +26,14 @@ namespace ECommerce.Persistence.Configurations
             builder.Property(p => p.SKU)
                 .IsRequired()
                 .HasMaxLength(50);
+
+            builder.Property(p => p.ImageUrl)
+                .HasMaxLength(500);
+
+            builder.Property(p => p.ApprovalStatus)
+                .HasDefaultValue(ECommerce.Domain.Enums.ProductApprovalStatus.Approved)
+                // Always persist the domain status, including Pending (the enum zero value).
+                .ValueGeneratedNever();
 
             // ── Indexler ─────────────────────────────────────────────────────
             // SKU benzersiz arama
@@ -42,10 +52,17 @@ namespace ECommerce.Persistence.Configurations
             // Aktif ürün + kategori + fiyat aralığı filtresi (yaygın sorgu kombinasyonu)
             builder.HasIndex(p => new { p.CategoryId, p.IsActive, p.Price });
 
+            builder.HasIndex(p => new { p.SellerId, p.ApprovalStatus });
+
             // ── İlişkiler ─────────────────────────────────────────────────────
             builder.HasOne(p => p.Category)
                 .WithMany(c => c.Products)
                 .HasForeignKey(p => p.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(p => p.Seller)
+                .WithMany(u => u.Products)
+                .HasForeignKey(p => p.SellerId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasMany(p => p.Reviews)

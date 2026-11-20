@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using System.Text.Json.Serialization;
 using System.Security.Claims;
 using ECommerce.Application.Features.Cart.Commands.AddToCart;
 using ECommerce.Application.Features.Cart.Commands.ClearCart;
@@ -34,9 +35,9 @@ namespace ECommerce.API.Controllers
         /// </summary>
         [HttpGet]
         [ProducesResponseType(typeof(CartDTO), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetCart()
+        public async Task<IActionResult> GetCart([FromHeader(Name = "X-Cart-Id")] string? anonymousId = null)
         {
-            var result = await _mediator.Send(new GetCartQuery(GetCartId()));
+            var result = await _mediator.Send(new GetCartQuery(GetCartId(anonymousId)));
             return Ok(result);
         }
 
@@ -46,13 +47,13 @@ namespace ECommerce.API.Controllers
         [HttpPost("items")]
         [ProducesResponseType(typeof(CartDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> AddItem([FromBody] AddToCartRequest request)
+        public async Task<IActionResult> AddItem([FromBody] AddToCartRequest request, [FromHeader(Name = "X-Cart-Id")] string? anonymousId = null)
         {
             var command = new AddToCartCommand
             {
                 ProductId = request.ProductId,
                 Quantity = request.Quantity,
-                CartId = GetCartId()
+                CartId = GetCartId(anonymousId)
             };
 
             var result = await _mediator.Send(command);
@@ -65,13 +66,13 @@ namespace ECommerce.API.Controllers
         [HttpPut("items/{productId:guid}")]
         [ProducesResponseType(typeof(CartDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdateItem(Guid productId, [FromBody] UpdateCartItemRequest request)
+        public async Task<IActionResult> UpdateItem(Guid productId, [FromBody] UpdateCartItemRequest request, [FromHeader(Name = "X-Cart-Id")] string? anonymousId = null)
         {
             var command = new UpdateCartItemCommand
             {
                 ProductId = productId,
                 Quantity = request.Quantity,
-                CartId = GetCartId()
+                CartId = GetCartId(anonymousId)
             };
 
             var result = await _mediator.Send(command);
@@ -83,12 +84,12 @@ namespace ECommerce.API.Controllers
         /// </summary>
         [HttpDelete("items/{productId:guid}")]
         [ProducesResponseType(typeof(CartDTO), StatusCodes.Status200OK)]
-        public async Task<IActionResult> RemoveItem(Guid productId)
+        public async Task<IActionResult> RemoveItem(Guid productId, [FromHeader(Name = "X-Cart-Id")] string? anonymousId = null)
         {
             var command = new RemoveFromCartCommand
             {
                 ProductId = productId,
-                CartId = GetCartId()
+                CartId = GetCartId(anonymousId)
             };
 
             var result = await _mediator.Send(command);
@@ -100,9 +101,9 @@ namespace ECommerce.API.Controllers
         /// </summary>
         [HttpDelete]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
-        public async Task<IActionResult> ClearCart()
+        public async Task<IActionResult> ClearCart([FromHeader(Name = "X-Cart-Id")] string? anonymousId = null)
         {
-            await _mediator.Send(new ClearCartCommand { CartId = GetCartId() });
+            await _mediator.Send(new ClearCartCommand { CartId = GetCartId(anonymousId) });
             return NoContent();
         }
 
@@ -119,7 +120,7 @@ namespace ECommerce.API.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var command = new MergeCartCommand
             {
-                AnonymousCartId = $"cart:anon:{request.AnonymousCartId}",
+                AnonymousCartId = $"cart:anon:{ValidateAnonymousId(request.AnonymousCartId)}",
                 UserCartId = $"cart:{userId}"
             };
 
@@ -131,30 +132,41 @@ namespace ECommerce.API.Controllers
         /// Kimliği doğrulanmış kullanıcı için "cart:{userId}",
         /// anonim kullanıcı için "cart:anon:{X-Cart-Id}" döner.
         /// </summary>
-        private string GetCartId()
+        private string GetCartId(string? anonymousId)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (!string.IsNullOrEmpty(userId))
                 return $"cart:{userId}";
 
-            var anonymousId = Request.Headers["X-Cart-Id"].FirstOrDefault();
-            if (string.IsNullOrEmpty(anonymousId))
-                anonymousId = Guid.NewGuid().ToString();
+            return $"cart:anon:{(string.IsNullOrEmpty(anonymousId) ? Guid.NewGuid().ToString() : ValidateAnonymousId(anonymousId))}";
+        }
 
-            return $"cart:anon:{anonymousId}";
+        private static string ValidateAnonymousId(string? anonymousId)
+        {
+            if (anonymousId is null || anonymousId.Length != 36 ||
+                !Guid.TryParseExact(anonymousId, "D", out var id) || id == Guid.Empty)
+                throw new FluentValidation.ValidationException(new[]
+                {
+                    new FluentValidation.Results.ValidationFailure("AnonymousCartId", "Anonymous cart ID must be a non-empty UUID in D format.")
+                });
+
+            return anonymousId;
         }
     }
 
     // Request modelleri — Controller ile aynı dosyada, minimal tutuldu
     public class AddToCartRequest
     {
+        [JsonRequired]
         public Guid ProductId { get; set; }
+        [JsonRequired]
         public int Quantity { get; set; }
     }
 
     public class UpdateCartItemRequest
     {
+        [JsonRequired]
         public int Quantity { get; set; }
     }
 

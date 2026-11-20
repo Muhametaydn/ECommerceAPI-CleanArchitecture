@@ -9,7 +9,7 @@ namespace ECommerce.Persistence.Seed;
 
 public static class IdentitySeeder
 {
-    public static async Task SeedAsync(IServiceProvider serviceProvider)
+    public static async Task SeedAsync(IServiceProvider serviceProvider, bool seedDemoUsers = false)
     {
         var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
         var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -21,6 +21,11 @@ public static class IdentitySeeder
                 await roleManager.CreateAsync(new IdentityRole<Guid>(role));
         }
 
+        // Bilinen parolalara sahip demo hesapları yalnızca açıkça etkinleştirilen
+        // yerel/test ortamlarında oluşturulur. Roller her ortamda hazırlanır.
+        if (!seedDemoUsers)
+            return;
+
         // Admin kullanıcı
         var adminEmail = "admin@outlook.com";
         if (await userManager.FindByEmailAsync(adminEmail) is null)
@@ -31,6 +36,18 @@ public static class IdentitySeeder
             var result = await userManager.CreateAsync(admin, "Admin123!");
             if (result.Succeeded)
                 await userManager.AddToRoleAsync(admin, AppRoles.Admin);
+        }
+
+        // Geliştirme ortamında satıcı panelini deneyebilmek için örnek satıcı
+        var sellerEmail = "seller@outlook.com";
+        if (await userManager.FindByEmailAsync(sellerEmail) is null)
+        {
+            var seller = ApplicationUser.Create("Örnek", "Satıcı", sellerEmail, sellerEmail);
+            seller.EmailConfirmed = true;
+
+            var result = await userManager.CreateAsync(seller, "Seller123!");
+            if (result.Succeeded)
+                await userManager.AddToRoleAsync(seller, AppRoles.Seller);
         }
     }
 }

@@ -10,6 +10,8 @@ namespace ECommerce.Application.Features.Orders.Commands.UpdateOrderStatus
     public class UpdateOrderStatusCommand : IRequest<OrderDetailDTO>
     {
         public Guid OrderId { get; set; }
+        public Guid RequesterId { get; set; }
+        public bool IsAdmin { get; set; }
 
         /// <summary>
         /// Yapılacak aksiyon: "confirm", "ship", "deliver"

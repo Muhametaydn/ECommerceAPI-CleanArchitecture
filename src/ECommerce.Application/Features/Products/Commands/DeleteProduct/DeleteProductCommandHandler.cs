@@ -11,17 +11,20 @@ public class DeleteProductCommandHandler : IRequestHandler<DeleteProductCommand,
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICacheService _cacheService;
     private readonly ISearchService _searchService;
+    private readonly IProductImageStorage _imageStorage;
 
     public DeleteProductCommandHandler(
         IProductRepository productRepository,
         IUnitOfWork unitOfWork,
         ICacheService cacheService,
-        ISearchService searchService)
+        ISearchService searchService,
+        IProductImageStorage imageStorage)
     {
         _productRepository = productRepository;
         _unitOfWork = unitOfWork;
         _cacheService = cacheService;
         _searchService = searchService;
+        _imageStorage = imageStorage;
     }
 
     public async Task<bool> Handle(DeleteProductCommand request, CancellationToken cancellationToken)
@@ -31,6 +34,8 @@ public class DeleteProductCommandHandler : IRequestHandler<DeleteProductCommand,
         if (product is null)
             throw new NotFoundException("Product", request.Id);
 
+        var imageUrl = product.ImageUrl;
+
         _productRepository.Delete(product);
         await _unitOfWork.SaveChangesAsync();
 
@@ -39,6 +44,8 @@ public class DeleteProductCommandHandler : IRequestHandler<DeleteProductCommand,
             _cacheService.RemoveAsync($"products:single:{request.Id}", cancellationToken),
             _cacheService.RemoveByPrefixAsync("products:list:", cancellationToken),
             _searchService.DeleteProductFromIndexAsync(request.Id, cancellationToken));
+
+        await _imageStorage.DeleteIfUnreferencedAsync(imageUrl, cancellationToken);
 
         return true;
     }

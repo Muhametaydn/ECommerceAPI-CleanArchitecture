@@ -1,4 +1,6 @@
-﻿using ECommerce.Domain.Interfaces;
+using ECommerce.Application.Common.Exceptions;
+using Microsoft.EntityFrameworkCore;
+using ECommerce.Domain.Interfaces;
 using ECommerce.Persistence.Context;
 using System;
 using System.Collections.Generic;
@@ -34,7 +36,19 @@ namespace ECommerce.Persistence.Repositories
 
         public async Task<int> SaveChangesAsync()
         {
-            return await _context.SaveChangesAsync();
+            try
+            {
+                return await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException exception) when (exception.InnerException is Npgsql.PostgresException
+                { SqlState: "23505", ConstraintName: "PK_Orders" or "IX_Orders_CartCheckoutKey" })
+            {
+                throw new ConflictException(exception);
+            }
+            catch (DbUpdateConcurrencyException exception)
+            {
+                throw new ConflictException(exception);
+            }
         }
 
         public void Dispose()

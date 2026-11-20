@@ -6,6 +6,8 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
     {
         public CreateOrderCommandValidator()
         {
+            RuleFor(x => x.CheckoutRequestId).NotEmpty().WithMessage("Sipariş istek kimliği gereklidir.");
+
             RuleFor(x => x.UserId)
                 .NotEmpty().WithMessage("Kullanıcı bilgisi gereklidir.");
 

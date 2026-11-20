@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using ECommerce.Application.Contracts.Identity;
+using ECommerce.Application.Common.Interfaces;
 using ECommerce.Application.Features.Auth.DTOs;
 using ECommerce.Domain.Constants;
 using ECommerce.Domain.Entities;
@@ -20,19 +21,22 @@ namespace ECommerce.Infrastructure.Services
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _context;
         private readonly JwtSettings _jwtSettings;
+        private readonly IAccountSecurityService _accountSecurityService;
 
         public AuthService(
             UserManager<ApplicationUser> userManager,
             ApplicationDbContext context,
-            IOptions<JwtSettings> jwtSettings)
+            IOptions<JwtSettings> jwtSettings,
+            IAccountSecurityService accountSecurityService)
         {
             _userManager = userManager;
             _context = context;
             _jwtSettings = jwtSettings.Value;
+            _accountSecurityService = accountSecurityService;
         }
 
         // ── REGISTER ──────────────────────────────────────────────────────
-        public async Task<AuthResponse> RegisterAsync(RegisterRequest request, string ipAddress)
+        public async Task<RegistrationResponse> RegisterAsync(RegisterRequest request, string ipAddress)
         {
             // E-posta kontrolü
             if (await _userManager.FindByEmailAsync(request.Email) is not null)
@@ -55,7 +59,8 @@ namespace ECommerce.Infrastructure.Services
             // Varsayılan olarak Customer rolü ata
             await _userManager.AddToRoleAsync(user, AppRoles.Customer);
 
-            return await BuildAuthResponseAsync(user, ipAddress);
+            await _accountSecurityService.RequestEmailConfirmationAsync(user.Email!, CancellationToken.None);
+            return new RegistrationResponse(user.Email!, "Doğrulama bağlantısı e-posta adresinize gönderildi.");
         }
 
         // ── LOGIN ─────────────────────────────────────────────────────────
@@ -69,6 +74,9 @@ namespace ECommerce.Infrastructure.Services
 
             if (!await _userManager.CheckPasswordAsync(user, request.Password))
                 throw new UnauthorizedAccessException("E-posta veya şifre hatalı.");
+
+            if (!user.EmailConfirmed)
+                throw new UnauthorizedAccessException("E-posta adresinizi doğrulamanız gerekiyor.");
 
             // Eski aktif refresh token'ları iptal et
             var oldTokens = await _context.RefreshTokens
@@ -94,12 +102,26 @@ namespace ECommerce.Infrastructure.Services
 
             var user = token.User;
 
+            if (!user.IsActive)
+                throw new UnauthorizedAccessException("Hesabınız devre dışı bırakılmış.");
+
+            if (!user.EmailConfirmed)
+                throw new UnauthorizedAccessException("E-posta adresinizi doğrulamanız gerekiyor.");
+
             // Yeni refresh token üret ve eskisini iptal et
             var newRefreshToken = GenerateRefreshToken(user.Id, ipAddress);
             token.Revoke(newRefreshToken.Token);
 
             _context.RefreshTokens.Add(newRefreshToken);
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // A concurrent refresh/logout consumed the old token. EF rolls back the replacement too.
+                throw new UnauthorizedAccessException("Refresh token daha önce kullanılmış veya iptal edilmiş.");
+            }
 
             var roles = await _userManager.GetRolesAsync(user);
             var accessToken = GenerateAccessToken(user, roles);
@@ -167,6 +189,9 @@ namespace ECommerce.Infrastructure.Services
                 new(JwtRegisteredClaimNames.FamilyName, user.LastName),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             };
+
+            if (!string.IsNullOrWhiteSpace(user.ProfileImageUrl))
+                claims.Add(new Claim("profileImageUrl", user.ProfileImageUrl));
 
             // Rol claim'leri ekle
             claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));

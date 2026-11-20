@@ -1,4 +1,6 @@
 using AutoMapper;
+using ECommerce.Application.Common.Exceptions;
+using ECommerce.Application.Common.Interfaces;
 using ECommerce.Application.Features.Addresses.DTOs;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Interfaces;
@@ -10,15 +12,23 @@ namespace ECommerce.Application.Features.Addresses.Commands.CreateAddress
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IUserLookupService _userLookupService;
 
-        public CreateAddressCommandHandler(IUnitOfWork unitOfWork, IMapper mapper)
+        public CreateAddressCommandHandler(
+            IUnitOfWork unitOfWork,
+            IMapper mapper,
+            IUserLookupService userLookupService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _userLookupService = userLookupService;
         }
 
         public async Task<AddressDTO> Handle(CreateAddressCommand request, CancellationToken cancellationToken)
         {
+            if (!await _userLookupService.ExistsAsync(request.UserId, cancellationToken))
+                throw new NotFoundException("Kullanıcı", request.UserId);
+
             var address = new Address
             {
                 Id = Guid.NewGuid(),

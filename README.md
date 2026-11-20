@@ -213,21 +213,45 @@ API: **http://localhost:8080** | Swagger: **http://localhost:8080/swagger**
 | `GET` | `/` | — | Ürün listesi (sayfalı, filtrelenebilir) |
 | `GET` | `/{id}` | — | Ürün detayı |
 | `GET` | `/search?q=...` | — | Elasticsearch fuzzy arama |
+| `GET` | `/admin` | Admin | Onay durumu ve satıcı bilgisiyle bütün ürünler |
+| `GET` | `/mine` | SellerOrAdmin | Oturumdaki satıcının ürünleri |
 | `POST` | `/` | SellerOrAdmin | Ürün oluştur |
 | `PUT` | `/{id}` | SellerOrAdmin | Ürün güncelle |
+| `POST` | `/{id}/approve` | Admin | Ürünü onayla ve yayınla |
+| `POST` | `/{id}/reject` | Admin | Ürünü reddet ve yayından kaldır |
 | `DELETE` | `/{id}` | Admin | Ürün sil |
+
+### Product Images — `/api/v1/product-images`
+
+| Method | Path | Yetki | Açıklama |
+|---|---|---|---|
+| `POST` | `/` | SellerOrAdmin | En fazla 5 MB JPEG, PNG veya WebP ürün görseli yükler |
+
+Yüklenen görseller `/uploads/products/{dosya}` adresinden sunulur ve Docker ortamında kalıcı `product_images` volume'unda saklanır.
 
 ### Orders — `/api/v1/orders`
 
 | Method | Path | Yetki | Açıklama |
 |---|---|---|---|
 | `GET` | `/` | Authenticated | Siparişlerim |
+| `GET` | `/admin` | Admin | Bütün siparişleri listele |
+| `GET` | `/seller` | SellerOrAdmin | Satıcının ürün kalemlerini içeren siparişleri listele |
 | `GET` | `/{id}` | Authenticated | Sipariş detayı |
 | `POST` | `/` | Customer | Sipariş oluştur |
-| `PUT` | `/{id}/confirm` | SellerOrAdmin | Siparişi onayla |
-| `PUT` | `/{id}/ship` | SellerOrAdmin | Kargoya ver |
-| `PUT` | `/{id}/deliver` | SellerOrAdmin | Teslim edildi |
-| `PUT` | `/{id}/cancel` | Authenticated | İptal et |
+| `PATCH` | `/{id}/status` | SellerOrAdmin | Onayla, kargola veya teslim et |
+| `POST` | `/{id}/cancel` | Authenticated | İptal et |
+
+### Admin — `/api/v1/admin`
+
+| Method | Path | Yetki | Açıklama |
+|---|---|---|---|
+| `GET` | `/users` | Admin | Kullanıcıları rolleriyle listele |
+| `PUT` | `/users/{id}/seller-role` | Admin | Kullanıcıyı satıcı veya müşteri yap |
+| `GET` | `/dashboard` | Admin | Ciro, sipariş ve kullanıcı istatistikleri |
+| `GET` | `/marketplace-settings` | Admin | Otomatik ürün onay ayarını getir |
+| `PUT` | `/marketplace-settings` | Admin | Otomatik ürün onay ayarını değiştir |
+
+Yerel geliştirme ortamında satıcı panelini denemek için `seller@outlook.com` / `Seller123!` hesabı otomatik oluşturulur.
 
 ### Diğer Endpoint'ler
 
@@ -299,4 +323,26 @@ ECommerceAPI/
 
 ## 📄 Lisans
 
-MIT — Detaylar için [LICENSE](LICENSE) dosyasına bakın.
+MIT - Detaylar için [LICENSE](LICENSE) dosyasına bakın.
+
+## Güvenlik taraması ve yerel yapılandırma
+
+- PostgreSQL ve RabbitMQ parolalarını ortam değişkenleriyle (`ConnectionStrings__DefaultConnection`, `RabbitMQ__Password`) verin. Yerel geliştirmede git tarafından yok sayılan `src/ECommerce.API/appsettings.Development.json` kullanılabilir. Bu dosya Docker imajına dahil edilmez. Gerçek ortamlarda demo kimlik bilgilerini kullanmayın.
+- SMTP için varsayılan `EmailSettings:EnableSsl` değeri `true` olur. TLS kapatma yalnızca yerel MailHog içindir: geliştirme ayarları ve yerel Docker Compose bunu açıkça `false` olarak ayarlar. Gerçek SMTP sunucusunda TLS'i açık tutun; SonarQube SMTP bulgusunu kullanılan ortamla birlikte değerlendirin.
+- Auth işlemleri bağlantının `RemoteIpAddress` değerini kullanır. Reverse proxy arkasında yayınlamadan önce Forwarded Headers Middleware'i yalnızca bilinen proxy adreslerine güvenecek şekilde yapılandırın; istemciden gelen `X-Forwarded-For` başlığını doğrudan kullanmayın.
+- Anonim sepet için `X-Cart-Id` ve birleştirme isteğindeki `AnonymousCartId`, boş olmayan `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` biçiminde UUID olmalıdır. İstemci, oluşturulan sepet kimliğinin `cart:anon:` önekinden sonraki UUID bölümünü sonraki isteklerde korumalıdır. Bu kimlik gizli bir erişim belirteci gibi ele alınmalıdır.
+- ETag SHA-256 kullanır. `.sonarqube/` yerel analiz çıktısıdır; git'e ve Docker imajına dahil edilmez. SonarQube'deki test kapsamı için ayrıca coverage raporu üretip tarayıcıya vermek gerekir.
+
+### SonarQube ve test kapsamı
+
+SonarQube yerelde `http://localhost:9000` adresinde çalışırken, .NET SDK ve `dotnet-sonarscanner` kurulu bir CMD penceresinde repo kökünden çalıştırın:
+
+```cmd
+scripts\Analyze-SonarQube.cmd YOUR_SONAR_TOKEN
+```
+
+Script sırasıyla analiz başlangıcı, tam derleme, tüm test projelerinde coverage toplama ve sonuç yükleme adımlarını çalıştırır. `coverage.runsettings`, mevcut Coverlet collector ile OpenCover ve Cobertura raporları üretir. SonarQube, `sonar.cs.opencover.reportsPaths` üzerinden OpenCover raporlarını okur; TRX sonuçları da ayrıca aktarılır. Test kodları kapsam ölçümüne dahil edilmez; uygulama kodu, controller'lar ve migration'lar bu ayarla kapsam dışına çıkarılmaz.
+
+Her çalıştırmanın çıktısı git tarafından yok sayılan `test-results/sonar/<run-id>/` klasöründe tutulur; önceki raporlar yeni analize karıştırılmaz. Derleme veya test başarısız olursa script yükleme adımına geçmez. CI test adımları da aynı rapor biçimini kullanır; yerel SonarQube sunucusuna CI üzerinden otomatik yükleme yapılmaz.
+
+Coverage, geçen test sayısı değil, çalıştırılan uygulama kodunun oranıdır. Raporun aktarılması %80 eşiğinin geçileceğini garanti etmez; ölçümden sonra eksik test senaryoları belirlenir. PostgreSQL/Redis testleri için `ECOMMERCE_TEST_POSTGRES` ve `ECOMMERCE_TEST_REDIS` yalnızca ayrı test servislerini göstermelidir; bu değişkenler yokken ilgili isteğe bağlı testler atlanabilir.

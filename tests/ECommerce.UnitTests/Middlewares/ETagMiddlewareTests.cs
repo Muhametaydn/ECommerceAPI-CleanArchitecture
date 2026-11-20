@@ -49,7 +49,7 @@ public class ETagMiddlewareTests
     private static string ComputeExpectedETag(string body)
     {
         var bytes = Encoding.UTF8.GetBytes(body);
-        var hash = MD5.HashData(bytes);
+        var hash = SHA256.HashData(bytes);
         return $"\"{Convert.ToHexString(hash).ToLowerInvariant()}\"";
     }
 
@@ -88,7 +88,7 @@ public class ETagMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_ETagValue_ShouldMatchMd5HashOfBody()
+    public async Task InvokeAsync_ETagValue_ShouldMatchSha256HashOfBody()
     {
         // Arrange
         const string responseBody = "{\"id\":42,\"name\":\"Telefon\"}";
@@ -226,6 +226,20 @@ public class ETagMiddlewareTests
 
         // Assert — HEAD istekleri de ETag almalı (GET gibi davranır)
         ctx.Response.Headers.ETag.ToString().Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_WhenAuthorizationHeaderExists_ShouldNotAddETagHeader()
+    {
+        var middleware = BuildMiddleware("{\"email\":\"private@example.test\"}");
+        var ctx = new DefaultHttpContext();
+        ctx.Request.Method = "GET";
+        ctx.Request.Headers.Authorization = "Bearer test-token";
+        ctx.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(ctx);
+
+        ctx.Response.Headers.ETag.ToString().Should().BeNullOrEmpty();
     }
 
     // ── CONTENT TYPE BYPASS ───────────────────────────────────────────────

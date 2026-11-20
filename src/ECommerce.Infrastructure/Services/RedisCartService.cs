@@ -1,3 +1,6 @@
+using StackExchange.Redis;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using System.Text.Json;
 using ECommerce.Application.Interfaces;
 using ECommerce.Domain.Entities;
@@ -8,6 +11,8 @@ namespace ECommerce.Infrastructure.Services
     public class RedisCartService : ICartService
     {
         private readonly IDistributedCache _cache;
+        private readonly IConnectionMultiplexer _redis;
+        private readonly string _prefix;
 
         // Kimliği doğrulanmış kullanıcılar için 30 gün, anonim kullanıcılar için 7 gün
         private static readonly TimeSpan AuthenticatedTtl = TimeSpan.FromDays(30);
@@ -19,9 +24,11 @@ namespace ECommerce.Infrastructure.Services
             WriteIndented = false
         };
 
-        public RedisCartService(IDistributedCache cache)
+        public RedisCartService(IDistributedCache cache, IConnectionMultiplexer redis, IOptions<RedisCacheOptions> options)
         {
             _cache = cache;
+            _redis = redis;
+            _prefix = options.Value.InstanceName ?? "";
         }
 
         public async Task<Cart?> GetCartAsync(string cartId)
@@ -49,6 +56,14 @@ namespace ECommerce.Infrastructure.Services
         public async Task DeleteCartAsync(string cartId)
         {
             await _cache.RemoveAsync(cartId);
+        }
+
+        public async Task<bool> DeleteCartIfUnchangedAsync(string cartId, Cart snapshot)
+        {
+            const string script = "if redis.call('HGET', KEYS[1], 'data') == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end";
+            var result = await _redis.GetDatabase().ScriptEvaluateAsync(script,
+                new RedisKey[] { _prefix + cartId }, new RedisValue[] { JsonSerializer.Serialize(snapshot, JsonOptions) });
+            return (long)result == 1;
         }
 
         public async Task<Cart> MergeCartsAsync(string anonymousCartId, string userCartId)

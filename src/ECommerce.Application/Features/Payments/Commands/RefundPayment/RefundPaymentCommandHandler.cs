@@ -32,9 +32,11 @@ namespace ECommerce.Application.Features.Payments.Commands.RefundPayment
             if (payment.Status != PaymentStatus.Completed)
                 throw new InvalidOperationException("Sadece tamamlanmış ödemeler iade edilebilir.");
 
+            if (order.Status != OrderStatus.Delivered)
+                throw new InvalidOperationException("Sadece teslim edilmiş siparişler iade edilebilir.");
+
             // Ödeme durumunu güncelle
-            payment.Status = PaymentStatus.Refunded;
-            payment.UpdateAt = DateTime.UtcNow;
+            payment.Refund();
             _unitOfWork.Payment.Update(payment);
 
             // Sipariş durumunu güncelle

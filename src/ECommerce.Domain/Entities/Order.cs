@@ -4,6 +4,7 @@ namespace ECommerce.Domain.Entities
 {
     public class Order : Common.BaseEntity
     {
+        public string? CartCheckoutKey { get; set; }
         public string OrderNumber { get; set; } = string.Empty;
         public Enums.OrderStatus Status { get; set; } = Enums.OrderStatus.Pending;
         public decimal TotalAmount { get; private set; }
@@ -12,7 +13,7 @@ namespace ECommerce.Domain.Entities
         public string? Note { get; set; }
 
         public Guid UserId { get; set; }
-        public User User { get; set; } = null!;
+        public ApplicationUser User { get; set; } = null!;
 
         public Guid ShippingAddressId { get; set; }
         public Address ShippingAddress { get; set; } = null!;
@@ -39,6 +40,35 @@ namespace ECommerce.Domain.Entities
             var subTotal = OrderItems.Sum(item => item.TotalPrice);
             TotalAmount = subTotal - DiscountAmount;
             if (TotalAmount < 0) TotalAmount = 0;
+        }
+
+        /// <summary>
+        /// Kalem durumlarından siparişin genel durumunu türetir. Karma satıcılı
+        /// siparişlerde bir satıcının işlemi diğer satıcının kalemini değiştirmez.
+        /// </summary>
+        public void SynchronizeStatusFromItems()
+        {
+            if (Status is Enums.OrderStatus.Cancelled or Enums.OrderStatus.Refunded || OrderItems.Count == 0)
+                return;
+
+            var activeItems = OrderItems
+                .Where(item => item.Status != Enums.OrderItemStatus.Cancelled)
+                .ToArray();
+
+            if (activeItems.Length == 0)
+                return;
+
+            if (Status == Enums.OrderStatus.Pending
+                && activeItems.Any(item => item.Status != Enums.OrderItemStatus.Pending))
+                Confirm();
+
+            if (Status == Enums.OrderStatus.Confirmed
+                && activeItems.All(item => item.Status is Enums.OrderItemStatus.Shipped or Enums.OrderItemStatus.Delivered))
+                Ship();
+
+            if (Status == Enums.OrderStatus.Shipped
+                && activeItems.All(item => item.Status == Enums.OrderItemStatus.Delivered))
+                Deliver();
         }
 
         // ── State Machine ─────────────────────────────────────────────────────

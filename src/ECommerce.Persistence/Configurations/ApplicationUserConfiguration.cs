@@ -18,14 +18,9 @@ namespace ECommerce.Persistence.Configurations
             builder.Property(u => u.ProfileImageUrl).HasMaxLength(500);
             builder.Property(u => u.CreatedAt).IsRequired();
 
-            builder.HasMany(u => u.Addresses)
-                .WithOne()
-                .HasForeignKey("UserId")
-                .OnDelete(DeleteBehavior.Cascade);
-
             builder.HasMany(u => u.Orders)
-                .WithOne()
-                .HasForeignKey("UserId")
+                .WithOne(o => o.User)
+                .HasForeignKey(o => o.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasMany(u => u.RefreshTokens)

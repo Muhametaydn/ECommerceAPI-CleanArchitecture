@@ -24,7 +24,7 @@ namespace ECommerce.Application.Features.Payments.Queries.GetPaymentByOrderId
 
             // Yetki kontrolü
             if (!request.IsAdmin && order.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Bu siparişin ödeme bilgisini görüntüleme yetkiniz yok.");
+                throw new ECommerce.Application.Common.Exceptions.ForbiddenException("Bu siparişin ödeme bilgisini görüntüleme yetkiniz yok.");
 
             var payment = await _unitOfWork.Payment.GetByOrderIdAsync(request.OrderId)
                 ?? throw new NotFoundException("Ödeme", request.OrderId);

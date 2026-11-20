@@ -12,8 +12,8 @@ namespace ECommerce.Domain.Interfaces
     public interface IGenericRepository<T> where T : BaseEntity
     {
         //Tekli sorgular
-        Task<T> GetByIdAsync(Guid id);
-        Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate);
+        Task<T?> GetByIdAsync(Guid id);
+        Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate);
 
         //Coklu sorgular
         Task<IReadOnlyList<T>> GetAllAsync();

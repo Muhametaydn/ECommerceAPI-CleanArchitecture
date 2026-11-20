@@ -19,7 +19,7 @@ namespace ECommerce.Application.Features.Addresses.Commands.DeleteAddress
                 ?? throw new NotFoundException("Adres", request.Id);
 
             if (address.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Bu adresi silme yetkiniz yok.");
+                throw new ECommerce.Application.Common.Exceptions.ForbiddenException("Bu adresi silme yetkiniz yok.");
 
             // Aktif siparişlerde kullanılıyor mu kontrol et
             var hasActiveOrders = await _unitOfWork.Order

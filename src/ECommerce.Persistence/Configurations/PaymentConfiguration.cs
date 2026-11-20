@@ -1,4 +1,4 @@
-﻿using ECommerce.Domain.Entities;
+using ECommerce.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
@@ -14,6 +14,8 @@ namespace ECommerce.Persistence.Configurations
         public void Configure(EntityTypeBuilder<Payment> builder)
         {
             builder.HasKey(p => p.Id);
+
+            builder.Property(p => p.Status).IsConcurrencyToken();
 
             builder.Property(p => p.Amount)
                 .IsRequired()

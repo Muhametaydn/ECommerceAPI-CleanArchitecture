@@ -55,6 +55,11 @@ namespace ECommerce.Infrastructure
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
             services.AddScoped<IUserLookupService, UserLookupService>();
+            services.AddScoped<IAdminQueryService, AdminQueryService>();
+            services.AddScoped<IUserRoleManagementService, UserRoleManagementService>();
+            services.AddScoped<IUserProfileService, UserProfileService>();
+            services.AddScoped<IAccountSecurityService, AccountSecurityService>();
+            services.AddScoped<IMarketplaceSettingsService, MarketplaceSettingsService>();
 
             // ── FluentEmail ───────────────────────────────────────────────────
             var emailSettings = configuration.GetSection(EmailSettings.SectionName).Get<EmailSettings>()!;

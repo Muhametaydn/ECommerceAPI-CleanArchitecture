@@ -31,5 +31,8 @@ namespace ECommerce.Domain.Interfaces
             decimal? maxPrice);
 
         Task<Product?> GetProductWithCategoryAsync(Guid productId);
+        Task<Product?> GetProductForManagementAsync(Guid productId);
+        Task<IReadOnlyList<Product>> GetAdminProductsAsync();
+        Task<IReadOnlyList<Product>> GetSellerProductsAsync(Guid sellerId);
     }
 }

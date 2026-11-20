@@ -32,11 +32,7 @@ namespace ECommerce.Persistence.Configurations
                 .IsUnique();
 
             builder.Ignore(u => u.FullName);
-
-            builder.HasMany(u => u.Addresses)
-                .WithOne( a=>a.User)
-                .HasForeignKey( a => a.UserId )
-                .OnDelete(DeleteBehavior.Cascade );
+            builder.Ignore(u => u.Addresses);
 
             builder.HasMany(u => u.Reviews)
                 .WithOne(r => r.User)

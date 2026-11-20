@@ -27,11 +27,11 @@ namespace ECommerce.Persistence.Context
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<Order> Orders => Set<Order>();
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
-        public DbSet<User> Users => Set<User>();
         public DbSet<Address> Address => Set<Address>();
         public DbSet<Payment> Payments => Set<Payment>();
         public DbSet<Review> Reviews => Set<Review>();
         public DbSet<Coupon> Coupons => Set<Coupon>();
+        public DbSet<MarketplaceSettings> MarketplaceSettings => Set<MarketplaceSettings>();
         public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -52,7 +52,7 @@ namespace ECommerce.Persistence.Context
                     IsActive = true,
                     Depth = 1,
                     SortOrder = 0,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = new DateTime(2026, 7, 16, 21, 17, 32, 974, DateTimeKind.Utc).AddTicks(2404)
                 },
                 new Category
                 {
@@ -63,7 +63,7 @@ namespace ECommerce.Persistence.Context
                     IsActive = true,
                     Depth = 1,
                     SortOrder = 1,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = new DateTime(2026, 7, 16, 21, 17, 32, 974, DateTimeKind.Utc).AddTicks(2411)
                 },
                 new Category
                 {
@@ -74,7 +74,7 @@ namespace ECommerce.Persistence.Context
                     IsActive = true,
                     Depth = 1,
                     SortOrder = 2,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = new DateTime(2026, 7, 16, 21, 17, 32, 974, DateTimeKind.Utc).AddTicks(2416)
                 }
             );
         }
@@ -83,8 +83,8 @@ namespace ECommerce.Persistence.Context
         /// SaveChanges pipeline:
         /// 1) Audit alanlarını doldur (CreatedAt / UpdateAt)
         /// 2) Entity'lerden domain event'leri topla
-        /// 3) DB'ye kaydet (business data + outbox mesajları tek transaction'da)
-        /// 4) Domain event'leri MediatR ile dispatch et (in-process, outbox handler'ları buradan çalışır)
+        /// 3) İş verisini kaydet, domain event'leri dispatch et, outbox'ı kaydet ve birlikte commit et
+        /// 4) Domain event listesini başarılı kayıttan sonra temizle
         /// </summary>
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
@@ -113,24 +113,34 @@ namespace ECommerce.Persistence.Context
                 .SelectMany(e => e.DomainEvents)
                 .ToList();
 
-            // Entity'lerin event listelerini temizle
-            entitiesWithEvents.ForEach(e => e.ClearDomainEvents());
-
-            // ── 3) DB'ye kaydet ───────────────────────────────────────────────
-            var result = await base.SaveChangesAsync(cancellationToken);
-
-            // ── 4) Domain event'leri dispatch et (SaveChanges sonrası) ────────
-            // Handler'lar outbox tablosuna yazar; ayrı bir SaveChanges çağrısı
-            // OutboxRepository.AddAsync içinde yoktur, handler'dan sonra kayıt gerekir.
-            if (_domainEventDispatcher is not null && domainEvents.Count > 0)
+            // Preserve post-save domain dispatch while committing business data and
+            // outbox together. A failed scope must be discarded before retrying.
+            var needsOutbox = _domainEventDispatcher is not null && domainEvents.Count > 0;
+            var externalTransaction = Database.IsRelational() ? Database.CurrentTransaction : null;
+            await using var ownedTransaction = needsOutbox && Database.IsRelational() && externalTransaction is null
+                ? await Database.BeginTransactionAsync(cancellationToken) : null;
+            var savepoint = needsOutbox && externalTransaction is not null ? "outbox_" + Guid.NewGuid().ToString("N") : null;
+            if (savepoint is not null)
+                await externalTransaction!.CreateSavepointAsync(savepoint, cancellationToken);
+            try
             {
-                await _domainEventDispatcher.DispatchAsync(domainEvents, cancellationToken);
-
-                // Outbox mesajlarını persist et
-                await base.SaveChangesAsync(cancellationToken);
+                var result = await base.SaveChangesAsync(cancellationToken);
+                if (needsOutbox)
+                {
+                    await _domainEventDispatcher!.DispatchAsync(domainEvents, cancellationToken);
+                    await base.SaveChangesAsync(cancellationToken);
+                }
+                if (ownedTransaction is not null) await ownedTransaction.CommitAsync(cancellationToken);
+                if (savepoint is not null) await externalTransaction!.ReleaseSavepointAsync(savepoint, cancellationToken);
+                entitiesWithEvents.ForEach(e => e.ClearDomainEvents());
+                return result;
             }
-
-            return result;
+            catch
+            {
+                if (ownedTransaction is not null) await ownedTransaction.RollbackAsync(CancellationToken.None);
+                if (savepoint is not null) await externalTransaction!.RollbackToSavepointAsync(savepoint, CancellationToken.None);
+                throw;
+            }
         }
     }
 }

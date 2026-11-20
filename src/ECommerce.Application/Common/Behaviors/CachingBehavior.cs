@@ -31,7 +31,7 @@ public class CachingBehavior<TRequest, TResponse>
     {
         // Sadece ICacheableRequest olan query'leri yakala
         if (request is not ICacheableRequest cacheableRequest)
-            return await next();
+            return await next(cancellationToken);
 
         var cacheKey = cacheableRequest.CacheKey;
         var duration = cacheableRequest.CacheDuration ?? DefaultCacheDuration;
@@ -46,7 +46,7 @@ public class CachingBehavior<TRequest, TResponse>
 
         // Cache miss → handler'ı çalıştır
         _logger.LogDebug("Cache MISS: {CacheKey} — DB'den alınıyor", cacheKey);
-        var response = await next();
+        var response = await next(cancellationToken);
 
         // Cache'e yaz
         if (response is not null)

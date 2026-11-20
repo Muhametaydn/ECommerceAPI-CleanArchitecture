@@ -35,6 +35,7 @@ namespace ECommerce.Application.Features.Cart.Commands.MergeCart
                 {
                     ProductId = i.ProductId,
                     ProductName = i.ProductName,
+                    ProductImageUrl = i.ProductImageUrl,
                     UnitPrice = i.UnitPrice,
                     Quantity = i.Quantity,
                     SubTotal = i.SubTotal

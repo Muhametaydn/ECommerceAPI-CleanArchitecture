@@ -1,4 +1,4 @@
-﻿using ECommerce.Domain.Entities;
+using ECommerce.Domain.Entities;
 using ECommerce.Domain.Enums;
 using ECommerce.Domain.Interfaces;
 using ECommerce.Persistence.Context;
@@ -14,6 +14,27 @@ namespace ECommerce.Persistence.Repositories
     public class OrderRepository : GenericRepository<Order>, IOrderRepository
     {
         public OrderRepository(ApplicationDbContext context) : base(context) { }
+
+        public async Task<IReadOnlyList<Order>> GetAllOrdersAsync()
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Include(o => o.OrderItems)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<Order>> GetSellerOrdersAsync(Guid sellerId)
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Product)
+                .Include(o => o.ShippingAddress)
+                .Where(o => o.OrderItems.Any(oi => oi.Product.SellerId == sellerId))
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+        }
 
         public async Task<IReadOnlyList<Order>> GetOrdersByUserAsync(Guid userId) {
             return await _dbSet
@@ -39,6 +60,12 @@ namespace ECommerce.Persistence.Repositories
                 .Include(o => o.ShippingAddress)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
+
+        public async Task<Order?> GetByCartCheckoutKeyAsync(string key)
+            => await _dbSet.AsNoTracking()
+                .Include(o => o.OrderItems).ThenInclude(i => i.Product)
+                .Include(o => o.Payment).Include(o => o.ShippingAddress)
+                .SingleOrDefaultAsync(o => o.CartCheckoutKey == key);
 
         public async Task<Order?> GetByOrderNumberAsync(string orderNumber)
         {

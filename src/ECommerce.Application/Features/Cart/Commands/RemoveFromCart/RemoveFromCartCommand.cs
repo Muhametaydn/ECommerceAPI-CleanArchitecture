@@ -37,6 +37,7 @@ namespace ECommerce.Application.Features.Cart.Commands.RemoveFromCart
                 {
                     ProductId = i.ProductId,
                     ProductName = i.ProductName,
+                    ProductImageUrl = i.ProductImageUrl,
                     UnitPrice = i.UnitPrice,
                     Quantity = i.Quantity,
                     SubTotal = i.SubTotal

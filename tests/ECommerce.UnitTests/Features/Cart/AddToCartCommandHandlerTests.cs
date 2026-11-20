@@ -29,8 +29,10 @@ public class AddToCartCommandHandlerTests
     public async Task Handle_ValidProduct_ShouldAddToCart()
     {
         var productId = Guid.NewGuid();
+        var product = new Product { Id = productId, Name = "Test", Price = 100m, StockQuantity = 10, IsActive = true };
+        product.UpdateImage("/uploads/products/test.jpg");
         _productRepoMock.Setup(r => r.GetByIdAsync(productId))
-            .ReturnsAsync(new Product { Id = productId, Name = "Test", Price = 100m, StockQuantity = 10, IsActive = true });
+            .ReturnsAsync(product);
         _cartServiceMock.Setup(s => s.GetCartAsync(It.IsAny<string>()))
             .ReturnsAsync((Domain.Entities.Cart?)null);
 
@@ -41,6 +43,7 @@ public class AddToCartCommandHandlerTests
         result.Items.Should().HaveCount(1);
         result.TotalItems.Should().Be(2);
         result.TotalPrice.Should().Be(200m);
+        result.Items[0].ProductImageUrl.Should().Be("/uploads/products/test.jpg");
         _cartServiceMock.Verify(s => s.SaveCartAsync(It.IsAny<Domain.Entities.Cart>()), Times.Once);
     }
 

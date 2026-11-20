@@ -20,7 +20,7 @@ namespace ECommerce.Application.Features.Reviews.Commands.DeleteReview
 
             // Admin her değerlendirmeyi silebilir, kullanıcı sadece kendininkileri
             if (!request.IsAdmin && review.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Bu değerlendirmeyi silme yetkiniz yok.");
+                throw new ECommerce.Application.Common.Exceptions.ForbiddenException("Bu değerlendirmeyi silme yetkiniz yok.");
 
             _unitOfWork.Review.Delete(review);
             await _unitOfWork.SaveChangesAsync();

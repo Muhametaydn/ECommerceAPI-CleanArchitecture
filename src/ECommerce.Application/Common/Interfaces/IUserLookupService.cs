@@ -6,6 +6,7 @@ namespace ECommerce.Application.Common.Interfaces
     /// </summary>
     public interface IUserLookupService
     {
+        Task<bool> ExistsAsync(Guid userId, CancellationToken ct = default);
         Task<(string Email, string FullName)?> GetUserInfoAsync(Guid userId, CancellationToken ct = default);
     }
 }

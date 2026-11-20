@@ -1,4 +1,4 @@
-﻿using ECommerce.Domain.Events.Payments;
+using ECommerce.Domain.Events.Payments;
 
 namespace ECommerce.Domain.Entities
 {
@@ -23,6 +23,14 @@ namespace ECommerce.Domain.Entities
             UpdateAt = DateTime.UtcNow;
 
             AddDomainEvent(new PaymentCompletedDomainEvent(Id, OrderId, Amount, transactionId));
+        }
+
+        public void Refund()
+        {
+            if (Status != Enums.PaymentStatus.Completed)
+                throw new InvalidOperationException("Sadece tamamlanmış ödemeler iade edilebilir.");
+            Status = Enums.PaymentStatus.Refunded;
+            UpdateAt = DateTime.UtcNow;
         }
 
         public void MarkAsFailed()

@@ -14,6 +14,7 @@ namespace ECommerce.Domain.Entities
         //Navigation Properties
         public ICollection<Address> Addresses { get; private set; } = new List<Address>();
         public ICollection<Order> Orders { get; private set; } = new List<Order>();
+        public ICollection<Product> Products { get; private set; } = new List<Product>();
         public ICollection<RefreshToken> RefreshTokens { get; private set; } = new List<RefreshToken>();
 
         public static ApplicationUser Create(string firstName, string lastName, string email, string userName)
@@ -31,10 +32,9 @@ namespace ECommerce.Domain.Entities
 
         public void UpdateProfile(string firstName, string lastName, string? profileImageUrl = null)
         {
-            FirstName = firstName;
-            LastName = lastName;
-            if (profileImageUrl is not null)
-                ProfileImageUrl = profileImageUrl;
+            FirstName = firstName.Trim();
+            LastName = lastName.Trim();
+            ProfileImageUrl = string.IsNullOrWhiteSpace(profileImageUrl) ? null : profileImageUrl.Trim();
             UpdateTime = DateTime.UtcNow;
         }
 

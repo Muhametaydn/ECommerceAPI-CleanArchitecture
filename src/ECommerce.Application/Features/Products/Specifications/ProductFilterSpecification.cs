@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using ECommerce.Domain.Entities;
+using ECommerce.Domain.Enums;
 using ECommerce.Domain.Specifications;
 
 namespace ECommerce.Application.Features.Products.Specifications;
@@ -28,7 +29,8 @@ public class ProductFilterSpecification : BaseSpecification<Product>
         Guid? cursor = null)
     {
         // --- KRITERLERI OLUSTUR ---
-        Expression<Func<Product, bool>> criteria = p => p.IsActive;
+        Expression<Func<Product, bool>> criteria = p =>
+            p.IsActive && p.ApprovalStatus == ProductApprovalStatus.Approved;
 
         // Arama — isim, aciklama veya SKU icinde arar
         if (!string.IsNullOrWhiteSpace(searchTerm))

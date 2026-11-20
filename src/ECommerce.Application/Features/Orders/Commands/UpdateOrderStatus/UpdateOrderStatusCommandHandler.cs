@@ -22,10 +22,26 @@ namespace ECommerce.Application.Features.Orders.Commands.UpdateOrderStatus
             var order = await _unitOfWork.Order.GetOrderWithItemsAsync(request.OrderId)
                 ?? throw new NotFoundException("Sipariş", request.OrderId);
 
+            if (!request.IsAdmin)
+            {
+                var sellerItems = order.OrderItems
+                    .Where(item => item.Product.SellerId == request.RequesterId)
+                    .ToArray();
+
+                if (sellerItems.Length == 0)
+                    throw new ECommerce.Application.Common.Exceptions.ForbiddenException("Bu siparişi yönetme yetkiniz yok.");
+
+                if (sellerItems.Length != order.OrderItems.Count)
+                    throw new InvalidOperationException(
+                        "Birden fazla satıcının ürününü içeren siparişlerin durumu yalnızca yönetici tarafından değiştirilebilir.");
+            }
+
             switch (request.Action.ToLowerInvariant())
             {
                 case "confirm":
                     order.Confirm();
+                    foreach (var item in order.OrderItems.Where(item => item.Status == Domain.Enums.OrderItemStatus.Pending))
+                        item.StartPreparing();
                     // Ödemeyi de onayla
                     if (order.Payment != null && order.Payment.Status == Domain.Enums.PaymentStatus.Pending)
                         order.Payment.MarkAsCompleted($"TXN-{Guid.NewGuid().ToString()[..8].ToUpper()}");
@@ -33,10 +49,26 @@ namespace ECommerce.Application.Features.Orders.Commands.UpdateOrderStatus
 
                 case "ship":
                     order.Ship();
+                    foreach (var item in order.OrderItems)
+                    {
+                        if (item.Status == Domain.Enums.OrderItemStatus.Pending)
+                            item.StartPreparing();
+                        if (item.Status == Domain.Enums.OrderItemStatus.Preparing)
+                            item.Ship();
+                    }
                     break;
 
                 case "deliver":
                     order.Deliver();
+                    foreach (var item in order.OrderItems)
+                    {
+                        if (item.Status == Domain.Enums.OrderItemStatus.Pending)
+                            item.StartPreparing();
+                        if (item.Status == Domain.Enums.OrderItemStatus.Preparing)
+                            item.Ship();
+                        if (item.Status == Domain.Enums.OrderItemStatus.Shipped)
+                            item.Deliver();
+                    }
                     break;
 
                 default:

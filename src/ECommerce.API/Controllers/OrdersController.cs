@@ -3,8 +3,11 @@ using System.Security.Claims;
 using ECommerce.Application.Features.Orders.Commands.CancelOrder;
 using ECommerce.Application.Features.Orders.Commands.CreateOrder;
 using ECommerce.Application.Features.Orders.Commands.UpdateOrderStatus;
+using ECommerce.Application.Features.Orders.Commands.UpdateOrderItemStatus;
 using ECommerce.Application.Features.Orders.DTOs;
+using ECommerce.Application.Features.Orders.Queries.GetAllOrders;
 using ECommerce.Application.Features.Orders.Queries.GetOrderById;
+using ECommerce.Application.Features.Orders.Queries.GetSellerOrders;
 using ECommerce.Application.Features.Orders.Queries.GetUserOrders;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -40,6 +43,7 @@ namespace ECommerce.API.Controllers
             var userId = GetUserId();
             var command = new CreateOrderCommand
             {
+                CheckoutRequestId = request.CheckoutRequestId,
                 UserId = userId,
                 CartId = $"cart:{userId}",
                 ShippingAddressId = request.ShippingAddressId,
@@ -63,6 +67,27 @@ namespace ECommerce.API.Controllers
             var result = await _mediator.Send(new GetUserOrdersQuery(userId));
             return Ok(result);
         }
+
+        /// <summary>
+        /// Yöneticinin mağazadaki bütün siparişleri listelemesini sağlar.
+        /// </summary>
+        [HttpGet("admin")]
+        [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(typeof(IReadOnlyList<OrderDTO>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAllOrders()
+        {
+            var result = await _mediator.Send(new GetAllOrdersQuery());
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Satıcının yalnızca kendi ürünlerini içeren sipariş kalemlerini listeler.
+        /// </summary>
+        [HttpGet("seller")]
+        [Authorize(Policy = "SellerOrAdmin")]
+        [ProducesResponseType(typeof(IReadOnlyList<SellerOrderDTO>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetSellerOrders()
+            => Ok(await _mediator.Send(new GetSellerOrdersQuery(GetUserId())));
 
         /// <summary>
         /// Sipariş detayını getirir.
@@ -101,10 +126,38 @@ namespace ECommerce.API.Controllers
             var command = new UpdateOrderStatusCommand
             {
                 OrderId = id,
-                Action = request.Action
+                Action = request.Action,
+                RequesterId = GetUserId(),
+                IsAdmin = User.IsInRole("Admin")
             };
 
             var result = await _mediator.Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Satıcının yalnızca kendisine ait sipariş kalemini ilerletmesini sağlar.
+        /// Durum akışı: Pending → Preparing → Shipped → Delivered
+        /// </summary>
+        [HttpPatch("{id:guid}/items/{itemId:guid}/status")]
+        [Authorize(Policy = "SellerOrAdmin")]
+        [ProducesResponseType(typeof(OrderItemDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateItemStatus(
+            Guid id,
+            Guid itemId,
+            [FromBody] UpdateOrderItemStatusRequest request)
+        {
+            var result = await _mediator.Send(new UpdateOrderItemStatusCommand
+            {
+                OrderId = id,
+                OrderItemId = itemId,
+                Action = request.Action,
+                RequesterId = GetUserId(),
+                IsAdmin = User.IsInRole("Admin")
+            });
+
             return Ok(result);
         }
 
@@ -141,6 +194,11 @@ namespace ECommerce.API.Controllers
 
     // ── Request modelleri ────────────────────────────────────────────────────
     public class UpdateOrderStatusRequest
+    {
+        public string Action { get; set; } = string.Empty;
+    }
+
+    public class UpdateOrderItemStatusRequest
     {
         public string Action { get; set; } = string.Empty;
     }

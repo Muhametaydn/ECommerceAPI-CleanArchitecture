@@ -26,7 +26,16 @@ public class UpdateProductCommandValidator : AbstractValidator<UpdateProductComm
             .NotEmpty().WithMessage("SKU boş olamaz.")
             .MaximumLength(50).WithMessage("SKU en fazla 50 karakter olabilir.");
 
+        RuleFor(x => x.ImageUrl)
+            .MaximumLength(500).WithMessage("Görsel adresi en fazla 500 karakter olabilir.")
+            .Must(BeAValidImageUrl).WithMessage("Görsel adresi HTTPS ile veya /uploads/products/ yolu ile başlamalıdır.");
+
         RuleFor(x => x.CategoryId)
             .NotEqual(Guid.Empty).WithMessage("Kategori seçilmelidir.");
     }
+
+    private static bool BeAValidImageUrl(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            || value.StartsWith("/uploads/products/", StringComparison.OrdinalIgnoreCase)
+            || Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
 }

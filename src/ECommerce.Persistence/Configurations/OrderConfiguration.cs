@@ -1,4 +1,4 @@
-﻿using ECommerce.Domain.Entities;
+using ECommerce.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
@@ -14,6 +14,10 @@ namespace ECommerce.Persistence.Configurations
         public void Configure(EntityTypeBuilder<Order> builder) 
         {
             builder.HasKey(o => o.Id);
+
+            builder.Property(o => o.Status).IsConcurrencyToken();
+            builder.Property(o => o.CartCheckoutKey).HasMaxLength(64);
+            builder.HasIndex(o => o.CartCheckoutKey).IsUnique();
 
             builder.Property(o => o.OrderNumber)
                 .IsRequired()

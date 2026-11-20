@@ -23,7 +23,7 @@ namespace ECommerce.Application.Features.Reviews.Commands.UpdateReview
                 ?? throw new NotFoundException("Değerlendirme", request.Id);
 
             if (review.UserId != request.UserId)
-                throw new UnauthorizedAccessException("Bu değerlendirmeyi güncelleme yetkiniz yok.");
+                throw new ECommerce.Application.Common.Exceptions.ForbiddenException("Bu değerlendirmeyi güncelleme yetkiniz yok.");
 
             review.Title = request.Title;
             review.Comment = request.Comment;

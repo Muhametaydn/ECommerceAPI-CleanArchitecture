@@ -20,13 +20,14 @@ namespace ECommerce.Domain.Entities
         /// <summary>
         /// Sepete ürün ekler. Aynı üründen varsa miktarı artırır.
         /// </summary>
-        public void AddItem(Guid productId, string productName, decimal unitPrice, int quantity)
+        public void AddItem(Guid productId, string productName, decimal unitPrice, int quantity, string? productImageUrl = null)
         {
             var existingItem = Items.FirstOrDefault(i => i.ProductId == productId);
 
             if (existingItem is not null)
             {
                 existingItem.Quantity += quantity;
+                existingItem.ProductImageUrl = productImageUrl;
             }
             else
             {
@@ -34,6 +35,7 @@ namespace ECommerce.Domain.Entities
                 {
                     ProductId = productId,
                     ProductName = productName,
+                    ProductImageUrl = productImageUrl,
                     UnitPrice = unitPrice,
                     Quantity = quantity
                 });
@@ -84,6 +86,7 @@ namespace ECommerce.Domain.Entities
     {
         public Guid ProductId { get; set; }
         public string ProductName { get; set; } = string.Empty;
+        public string? ProductImageUrl { get; set; }
         public decimal UnitPrice { get; set; }
         public int Quantity { get; set; }
 

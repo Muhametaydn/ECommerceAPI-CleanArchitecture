@@ -3,6 +3,7 @@ using ECommerce.Infrastructure.Settings;
 using FluentEmail.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Net;
 
 namespace ECommerce.Infrastructure.Services
 {
@@ -46,6 +47,56 @@ namespace ECommerce.Infrastructure.Services
             var body = BuildLowStockBody(productName, currentStock);
 
             await SendAsync(adminEmail, "Admin", $"⚠️ Düşük Stok Uyarısı — {productName}", body, ct);
+        }
+
+        public Task SendPasswordResetAsync(string toEmail, string toName, string resetUrl, CancellationToken ct = default)
+        {
+            var safeName = WebUtility.HtmlEncode(toName);
+            var safeUrl = WebUtility.HtmlEncode(resetUrl);
+            var body = $"""
+                <html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:auto">
+                  <h2 style="color:#4f46e5">Şifreni Sıfırla</h2>
+                  <p>Merhaba <strong>{safeName}</strong>,</p>
+                  <p>Hesabın için bir şifre sıfırlama isteği aldık. Aşağıdaki bağlantıyı kullanarak yeni şifreni belirleyebilirsin.</p>
+                  <p style="margin:28px 0"><a href="{safeUrl}" style="background:#4f46e5;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Yeni Şifre Belirle</a></p>
+                  <p style="color:#666;font-size:13px">Bu isteği sen yapmadıysan e-postayı yok sayabilirsin. Bağlantı yalnızca bir kez kullanılabilir.</p>
+                  <p style="color:#888;font-size:12px">Bu e-posta otomatik gönderilmiştir, lütfen yanıtlamayınız.</p>
+                </body></html>
+                """;
+            return SendAsync(toEmail, toName, "Şifre Sıfırlama Bağlantın", body, ct);
+        }
+
+        public Task SendEmailConfirmationAsync(string toEmail, string toName, string confirmationUrl, CancellationToken ct = default)
+        {
+            var safeName = WebUtility.HtmlEncode(toName);
+            var safeUrl = WebUtility.HtmlEncode(confirmationUrl);
+            var body = $"""
+                <html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:auto">
+                  <h2 style="color:#4f46e5">E-posta Adresini Doğrula</h2>
+                  <p>Merhaba <strong>{safeName}</strong>,</p>
+                  <p>Üyeliğini tamamlamak ve hesabına giriş yapmak için e-posta adresini doğrula.</p>
+                  <p style="margin:28px 0"><a href="{safeUrl}" style="background:#4f46e5;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">E-postamı Doğrula</a></p>
+                  <p style="color:#666;font-size:13px">Bu hesabı sen oluşturmadıysan e-postayı yok sayabilirsin. Bağlantı yalnızca bir kez kullanılabilir.</p>
+                  <p style="color:#888;font-size:12px">Bu e-posta otomatik gönderilmiştir, lütfen yanıtlamayınız.</p>
+                </body></html>
+                """;
+            return SendAsync(toEmail, toName, "E-posta Adresini Doğrula", body, ct);
+        }
+
+        public Task SendEmailChangeConfirmationAsync(string toEmail, string toName, string confirmationUrl, CancellationToken ct = default)
+        {
+            var safeName = WebUtility.HtmlEncode(toName);
+            var safeUrl = WebUtility.HtmlEncode(confirmationUrl);
+            var body = $"""
+                <html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:auto">
+                  <h2>Yeni E-posta Adresini Doğrula</h2>
+                  <p>Merhaba <strong>{safeName}</strong>,</p>
+                  <p>Hesabının e-posta adresini değiştirmek için aşağıdaki bağlantıyı kullan.</p>
+                  <p><a href="{safeUrl}">Yeni Adresimi Doğrula</a></p>
+                  <p>Doğrulayana kadar mevcut adresin kullanılmaya devam eder. Bu isteği sen yapmadıysan e-postayı yok sayabilirsin.</p>
+                </body></html>
+                """;
+            return SendAsync(toEmail, toName, "Yeni E-posta Adresini Doğrula", body, ct);
         }
 
         // ── Gönderim ────────────────────────────────────────────────────────────

@@ -126,6 +126,19 @@ public class ProductFilterSpecificationTests
         result.Should().OnlyContain(p => p.IsActive);
     }
 
+    [Fact]
+    public void DefaultSpec_ShouldExcludePendingProducts_EvenIfMarkedActive()
+    {
+        var products = GetTestProducts();
+        var pendingProduct = products[0];
+        pendingProduct.AssignSeller(Guid.NewGuid(), autoApprove: false);
+        pendingProduct.IsActive = true;
+
+        var result = ApplySpec(new ProductFilterSpecification(), products);
+
+        result.Should().NotContain(p => p.Id == pendingProduct.Id);
+    }
+
     // ── ARAMA (SEARCH) ──────────────────────────────────────────────────
 
     [Fact]

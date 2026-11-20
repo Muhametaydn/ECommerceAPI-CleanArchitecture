@@ -8,7 +8,7 @@ namespace ECommerce.API.Middlewares;
 ///
 /// Nasıl çalışır:
 /// 1. Response body'yi buffer'a yazar.
-/// 2. Body içeriğinin MD5 hash'ini hesaplar → ETag header olarak ekler.
+/// 2. Body içeriğinin SHA-256 hash'ini hesaplar → ETag header olarak ekler.
 /// 3. İstemci bir sonraki istekte "If-None-Match: {etag}" header'ı gönderirse
 ///    ve değer eşleşiyorsa, body gönderilmeden 304 Not Modified döner.
 ///
@@ -28,6 +28,15 @@ public class ETagMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // Kimliği doğrulanmış kullanıcıya ait yanıtları ortak/tarayıcı önbelleğine uygun
+        // bir doğrulayıcıyla işaretlemeyelim. SecurityHeadersMiddleware bu yanıtları
+        // ayrıca no-store olarak işaretler.
+        if (context.Request.Headers.ContainsKey("Authorization"))
+        {
+            await _next(context);
+            return;
+        }
+
         // Sadece GET ve HEAD isteklerine uygula
         if (!HttpMethods.IsGet(context.Request.Method) &&
             !HttpMethods.IsHead(context.Request.Method))
@@ -57,11 +66,11 @@ public class ETagMiddleware
         if (!isSuccess || !isJson || bufferedBody.Length == 0)
         {
             bufferedBody.Seek(0, SeekOrigin.Begin);
-            await bufferedBody.CopyToAsync(originalBody);
+            await bufferedBody.CopyToAsync(originalBody, context.RequestAborted);
             return;
         }
 
-        // ETag hesapla (MD5 hex)
+        // ETag hesapla (SHA-256 hex)
         bufferedBody.Seek(0, SeekOrigin.Begin);
         var bodyBytes = bufferedBody.ToArray();
         var etag = ComputeETag(bodyBytes);
@@ -81,12 +90,12 @@ public class ETagMiddleware
         context.Response.Headers.ETag = etag;
         context.Response.ContentLength = bodyBytes.Length;
 
-        await originalBody.WriteAsync(bodyBytes);
+        await originalBody.WriteAsync(bodyBytes, context.RequestAborted);
     }
 
     private static string ComputeETag(byte[] content)
     {
-        var hash = MD5.HashData(content);
+        var hash = SHA256.HashData(content);
         var hex = Convert.ToHexString(hash).ToLowerInvariant();
         return $"\"{hex}\""; // RFC 7232: ETag değerleri çift tırnak içinde olmalı
     }
