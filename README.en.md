@@ -150,8 +150,8 @@ Auth endpoints are limited to 5 requests/minute, API endpoints to 30 requests/mi
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Muhametaydn/ECommerceAPI.git
-cd ECommerceAPI
+git clone https://github.com/Muhametaydn/ECommerceAPI-CleanArchitecture.git
+cd ECommerceAPI-CleanArchitecture
 ```
 
 ### 2. Start infrastructure services
@@ -160,16 +160,29 @@ cd ECommerceAPI
 docker compose up -d postgres redis rabbitmq mailhog elasticsearch
 ```
 
-### 3. Run the API
+### 3. Set local secrets (once)
+
+Passwords and the JWT key are never committed; .NET user-secrets keeps them on your machine only.
+The values match the local services started with `docker compose`.
 
 ```bash
 cd src/ECommerce.API
+dotnet user-secrets set "JwtSettings:SecretKey" "$(openssl rand -hex 32)"
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=ECommerceDB;Username=postgres;Password=root"
+dotnet user-secrets set "RabbitMQ:Password" "guest"
+```
+
+> The API **refuses to start** without a JWT key (empty, shorter than 32 bytes or placeholder keys are rejected).
+
+### 4. Run the API
+
+```bash
 dotnet run
 ```
 
 Swagger UI: **http://localhost:5000/swagger**
 
-### 4. Start the full stack with Docker (optional)
+### 5. Start the full stack with Docker (optional)
 
 ```bash
 docker compose up -d

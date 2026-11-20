@@ -151,8 +151,8 @@ Auth endpoint'leri 5 istek/dakika, API endpoint'leri 30 istek/dakika, global ise
 ### 1. Repoyu klonla
 
 ```bash
-git clone https://github.com/Muhametaydn/ECommerceAPI.git
-cd ECommerceAPI
+git clone https://github.com/Muhametaydn/ECommerceAPI-CleanArchitecture.git
+cd ECommerceAPI-CleanArchitecture
 ```
 
 ### 2. Altyapı servislerini başlat
@@ -161,16 +161,29 @@ cd ECommerceAPI
 docker compose up -d postgres redis rabbitmq mailhog elasticsearch
 ```
 
-### 3. API'yi çalıştır
+### 3. Yerel sırları ayarla (bir kez)
+
+Parolalar ve JWT anahtarı repoya konmaz; .NET user-secrets ile yalnızca senin bilgisayarında saklanır.
+Değerler `docker compose` ile başlatılan yerel servislerle eşleşir.
 
 ```bash
 cd src/ECommerce.API
+dotnet user-secrets set "JwtSettings:SecretKey" "$(openssl rand -hex 32)"
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=ECommerceDB;Username=postgres;Password=root"
+dotnet user-secrets set "RabbitMQ:Password" "guest"
+```
+
+> JWT anahtarı olmadan API **açılmaz** (boş, 32 bayttan kısa veya örnek anahtar kabul edilmez).
+
+### 4. API'yi çalıştır
+
+```bash
 dotnet run
 ```
 
 Swagger UI: **http://localhost:5000/swagger**
 
-### 4. Tüm stack'i Docker ile başlat (opsiyonel)
+### 5. Tüm stack'i Docker ile başlat (opsiyonel)
 
 ```bash
 docker compose up -d

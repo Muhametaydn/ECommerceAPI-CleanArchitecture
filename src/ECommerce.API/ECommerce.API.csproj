@@ -4,6 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Yerel geliştirme sırları (JWT anahtarı, DB parolası) repoya girmez: dotnet user-secrets -->
+    <UserSecretsId>ecommerce-api-clean-architecture</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
