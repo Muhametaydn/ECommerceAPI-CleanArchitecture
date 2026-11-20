@@ -185,12 +185,16 @@ API: **http://localhost:8080** | Swagger: **http://localhost:8080/swagger**
 |---|---|---|
 | `ConnectionStrings__DefaultConnection` | PostgreSQL connection string | `Host=localhost;...` |
 | `ConnectionStrings__Redis` | Redis connection string | `localhost:6379` |
-| `JwtSettings__SecretKey` | JWT signing key (≥32 characters) | — |
+| `JwtSettings__SecretKey` | JWT signing key (≥32 random bytes). `JWT_SECRET_KEY` in compose | — (required) |
+| `ReverseProxy__KnownProxies__0` / `ReverseProxy__KnownNetworks__0` | Proxy IP / network (CIDR) whose `X-Forwarded-For` is trusted. Set it to the frontend server | loopback only |
 | `RabbitMQ__Host` | RabbitMQ host | `localhost` |
 | `Elasticsearch__Uri` | Elasticsearch URI | `http://localhost:9200` |
 | `Email__Host` | SMTP host | `localhost` |
 
-> ⚠️ You must change `JwtSettings__SecretKey` in production.
+> ⚠️ The API **refuses to start** if the key is empty, shorter than 32 bytes, or a placeholder. Generate one with `openssl rand -hex 32`.
+> Production compose: `JWT_SECRET_KEY=... docker compose -f docker-compose.yml up -d`
+>
+> Rate limits are per client (login: 5/min per IP; API: 30/min per user or IP). If the frontend proxy is not in a trusted network, every user counts as one client.
 
 ---
 

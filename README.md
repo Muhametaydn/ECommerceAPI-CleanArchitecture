@@ -186,12 +186,16 @@ API: **http://localhost:8080** | Swagger: **http://localhost:8080/swagger**
 |---|---|---|
 | `ConnectionStrings__DefaultConnection` | PostgreSQL bağlantı dizesi | `Host=localhost;...` |
 | `ConnectionStrings__Redis` | Redis bağlantı dizesi | `localhost:6379` |
-| `JwtSettings__SecretKey` | JWT imzalama anahtarı (≥32 karakter) | — |
+| `JwtSettings__SecretKey` | JWT imzalama anahtarı (≥32 bayt, rastgele). Compose'ta `JWT_SECRET_KEY` | — (zorunlu) |
+| `ReverseProxy__KnownProxies__0` / `ReverseProxy__KnownNetworks__0` | `X-Forwarded-For` başlığına güvenilecek proxy IP'si / ağı (CIDR). Frontend sunucusunun adresi verilmeli | yalnızca loopback |
 | `RabbitMQ__Host` | RabbitMQ host | `localhost` |
 | `Elasticsearch__Uri` | Elasticsearch URI | `http://localhost:9200` |
 | `Email__Host` | SMTP host | `localhost` |
 
-> ⚠️ Production'da `JwtSettings__SecretKey` mutlaka değiştirilmelidir.
+> ⚠️ API, anahtar boş, 32 bayttan kısa veya örnek (placeholder) değerdeyse **başlamaz**. Anahtar üretmek için: `openssl rand -hex 32`.
+> Production compose: `JWT_SECRET_KEY=... docker compose -f docker-compose.yml up -d`
+>
+> Rate limit istemci başına uygulanır (giriş: IP başına 5/dk; API: kullanıcı ya da IP başına 30/dk). Frontend proxy'si güvenilir ağda değilse tüm kullanıcılar tek istemci sayılır.
 
 ---
 
@@ -251,7 +255,7 @@ Yüklenen görseller `/uploads/products/{dosya}` adresinden sunulur ve Docker or
 | `GET` | `/marketplace-settings` | Admin | Otomatik ürün onay ayarını getir |
 | `PUT` | `/marketplace-settings` | Admin | Otomatik ürün onay ayarını değiştir |
 
-Yerel geliştirme ortamında satıcı panelini denemek için `seller@outlook.com` / `Seller123!` hesabı otomatik oluşturulur.
+Yerel geliştirme ortamında (`ASPNETCORE_ENVIRONMENT=Development` + `SeedDemoUsers__Enabled=true`) satıcı panelini denemek için `seller@outlook.com` / `Seller123!` hesabı otomatik oluşturulur. Demo hesaplar Development dışında hiçbir zaman oluşturulmaz.
 
 ### Diğer Endpoint'ler
 
