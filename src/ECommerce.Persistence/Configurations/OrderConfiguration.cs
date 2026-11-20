@@ -40,6 +40,16 @@ namespace ECommerce.Persistence.Configurations
                 .IsRequired()
                 .HasConversion<int>();
 
+            // Fraud kararı ile satıcı onayı aynı anda gelirse onay sessizce geçmesin: çakışma (409) olsun.
+            builder.Property(o => o.RiskStatus)
+                .IsRequired()
+                .HasConversion<int>()
+                .HasDefaultValue(Domain.Enums.RiskStatus.NotChecked)
+                .IsConcurrencyToken();
+
+            // Analistin inceleme kuyruğu ve raporlar için.
+            builder.HasIndex(o => o.RiskStatus);
+
             builder.HasOne(o => o.User)
                 .WithMany(u => u.Orders)
                 .HasForeignKey(o => o.UserId)

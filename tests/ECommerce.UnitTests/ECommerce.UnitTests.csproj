@@ -30,4 +30,8 @@
     <ProjectReference Include="..\..\src\ECommerce.API\ECommerce.API.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Fraud sözleşme örnekleri. Kaynak: ECommerceFraud/contracts/samples (iki repoda aynı tutulur). -->
+    <None Update="ContractSamples/**/*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

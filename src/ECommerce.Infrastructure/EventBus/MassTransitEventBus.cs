@@ -20,12 +20,13 @@ namespace ECommerce.Infrastructure.EventBus
         }
 
         public async Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
-            where TEvent : IIntegrationEvent
+            where TEvent : class
         {
+            // Sözleşme olayları (ör. ECommerce.Contracts.Fraud) IIntegrationEvent uygulamaz; şekilleriyle tanımlıdır.
             _logger.LogInformation(
                 "[MassTransitEventBus] Yayımlanıyor: {EventType} | EventId: {EventId}",
-                integrationEvent.EventType,
-                integrationEvent.EventId);
+                typeof(TEvent).Name,
+                (integrationEvent as IIntegrationEvent)?.EventId);
 
             await _publishEndpoint.Publish(integrationEvent, cancellationToken);
         }

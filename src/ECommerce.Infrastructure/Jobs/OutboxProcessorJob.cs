@@ -31,6 +31,8 @@ namespace ECommerce.Infrastructure.Jobs
             [typeof(OrderStatusChangedIntegrationEvent).FullName!]  = typeof(OrderStatusChangedIntegrationEvent),
             [typeof(PaymentProcessedIntegrationEvent).FullName!]    = typeof(PaymentProcessedIntegrationEvent),
             [typeof(LowStockAlertIntegrationEvent).FullName!]       = typeof(LowStockAlertIntegrationEvent),
+            // Fraud servisine giden olay (sözleşme: ECommerce.Contracts.Fraud)
+            [typeof(ECommerce.Contracts.Fraud.OrderRiskCheckRequested).FullName!] = typeof(ECommerce.Contracts.Fraud.OrderRiskCheckRequested),
         };
 
         public OutboxProcessorJob(
@@ -65,7 +67,7 @@ namespace ECommerce.Infrastructure.Jobs
                     }
 
                     // JSON → integration event nesnesi
-                    var integrationEvent = (IIntegrationEvent?)JsonSerializer.Deserialize(message.Payload, eventType);
+                    var integrationEvent = JsonSerializer.Deserialize(message.Payload, eventType);
                     if (integrationEvent is null)
                     {
                         await _outboxRepository.MarkAsFailedAsync(message.Id, "Deserialize başarısız.");

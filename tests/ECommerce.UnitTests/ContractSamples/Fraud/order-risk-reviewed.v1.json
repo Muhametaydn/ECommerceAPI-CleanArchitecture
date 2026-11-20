@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "eventId": "8b3d1f7e-2c6a-4e9b-9f0d-5a4c3b2e1d07",
+  "occurredAt": "2026-11-20T13:10:00+00:00",
+  "orderId": "3d9b6c2f-1a4e-4f8b-b7d2-5e6a9c0f1b23",
+  "assessmentId": "4e7a1c9b-3f2d-4b8e-a6c5-1d0f9e8b7a63",
+  "outcome": "Rejected",
+  "reviewedBy": "7c6b5a49-3827-4615-a0b9-c8d7e6f5a4b3",
+  "reviewedAt": "2026-11-20T13:09:58+00:00"
+}

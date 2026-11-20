@@ -3,6 +3,9 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using AutoMapper;
 using ECommerce.Application.Common.Exceptions;
+using ECommerce.Application.Common.Fraud;
+using ECommerce.Application.Common.Interfaces;
+using ECommerce.Application.Features.Orders.Fraud;
 using ECommerce.Application.Features.Orders.DTOs;
 using ECommerce.Application.Interfaces;
 using ECommerce.Domain.Entities;
@@ -17,12 +20,21 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
         private readonly ICartService _cartService;
         private readonly IMapper _mapper;
         private readonly ILogger<CreateOrderCommandHandler> _logger;
+        private readonly FraudDetectionSettings _fraud;
+        private readonly IUserLookupService _users;
+        private readonly IOutboxRepository _outbox;
 
         public CreateOrderCommandHandler(
             IUnitOfWork unitOfWork,
             ICartService cartService,
-            IMapper mapper, ILogger<CreateOrderCommandHandler> logger)
+            IMapper mapper, ILogger<CreateOrderCommandHandler> logger,
+            FraudDetectionSettings fraud,
+            IUserLookupService users,
+            IOutboxRepository outbox)
         {
+            _fraud = fraud;
+            _users = users;
+            _outbox = outbox;
             _unitOfWork = unitOfWork;
             _cartService = cartService;
             _mapper = mapper;
@@ -66,10 +78,12 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
             };
 
             // 3) Her sepet kalemi için stok kontrolü yap ve OrderItem oluştur
+            var products = new List<Product>(cart.Items.Count);
             foreach (var cartItem in cart.Items)
             {
                 var product = await _unitOfWork.Product.GetByIdAsync(cartItem.ProductId)
                     ?? throw new NotFoundException("Ürün", cartItem.ProductId);
+                products.Add(product);
 
                 if (!product.IsActive)
                     throw new InvalidOperationException($"'{product.Name}' ürünü artık satışta değil.");
@@ -128,6 +142,23 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
             };
 
             order.Payment = payment;
+
+            // 6b) Fraud açıksa risk değerlendirme isteği AYNI transaction'da outbox'a yazılır:
+            //     sipariş kaydedilirse olay da kaydedilir, biri olmadan diğeri olmaz. Kapalıyken hiçbir şey yazılmaz.
+            if (_fraud.Enabled)
+            {
+                var riskProfile = await _users.GetRiskProfileAsync(request.UserId, cancellationToken);
+                var riskCheck = OrderRiskCheckRequestFactory.Create(
+                    order, products, address, riskProfile,
+                    request.ClientIpAddress, request.UserAgent, DateTimeOffset.UtcNow);
+                await _outbox.AddAsync(new Domain.Outbox.OutboxMessage
+                {
+                    Id = Guid.NewGuid(),
+                    Type = typeof(ECommerce.Contracts.Fraud.OrderRiskCheckRequested).FullName!,
+                    Payload = System.Text.Json.JsonSerializer.Serialize(riskCheck),
+                    CreatedAt = DateTime.UtcNow
+                }, cancellationToken);
+            }
 
             // 7) Veritabanına kaydet
             await _unitOfWork.Order.AddAsync(order);

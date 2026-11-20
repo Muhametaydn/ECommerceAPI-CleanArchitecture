@@ -26,6 +26,9 @@ namespace ECommerce.IntegrationTests;
 public sealed class OrderPaymentPersistenceTests : IAsyncLifetime
 {
     private readonly Mock<ICacheService> _cache = new();
+    private readonly Mock<IUserLookupService> _users = new();
+    // Varsayılan kapalı; fraud testleri kendi modunu açar.
+    private readonly ECommerce.Application.Common.Fraud.FraudDetectionSettings _fraud = new();
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
     private ServiceProvider _services = null!;
     private Cart? _cart;
@@ -45,6 +48,8 @@ public sealed class OrderPaymentPersistenceTests : IAsyncLifetime
         services.AddPersistenceServices(new ConfigurationBuilder().Build());
         services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(_connection));
         services.AddSingleton(_cache.Object);
+        services.AddSingleton(_users.Object);
+        services.AddSingleton(_fraud);
         services.AddSingleton(Mock.Of<ISearchService>());
         services.AddSingleton(Mock.Of<IProductImageStorage>());
         var cartService = new Mock<ICartService>();
@@ -414,6 +419,168 @@ public sealed class OrderPaymentPersistenceTests : IAsyncLifetime
         await Send(new CancelOrderCommand { OrderId = order.Id, UserId = _customer });
 
         await WithDb(async db => Assert.Equal(0, (await db.Coupons.SingleAsync()).CurrentUsageCount));
+    }
+
+
+    // ── Fraud entegrasyonu (Faz 1) ───────────────────────────────────────────
+
+    private const string RiskCheckType = "ECommerce.Contracts.Fraud.OrderRiskCheckRequested";
+
+    private void UseFraud(ECommerce.Application.Common.Fraud.FraudDetectionMode mode)
+    {
+        _fraud.Enabled = true;
+        _fraud.Mode = mode;
+        _users.Setup(users => users.GetRiskProfileAsync(_customer, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserRiskProfile(new DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc), "test@example.invalid", true));
+    }
+
+    private Task<ECommerce.Application.Features.Orders.Commands.ApplyRiskDecision.RiskDecisionResult> Assess(Guid order, string decision)
+        => Send(new ECommerce.Application.Features.Orders.Commands.ApplyRiskDecision.ApplyRiskAssessmentCommand(order, Guid.NewGuid(), decision, 75));
+
+    private Task<ECommerce.Application.Features.Orders.Commands.ApplyRiskDecision.RiskDecisionResult> Review(Guid order, string outcome)
+        => Send(new ECommerce.Application.Features.Orders.Commands.ApplyRiskDecision.ApplyRiskReviewCommand(order, Guid.NewGuid(), outcome, Guid.NewGuid()));
+
+    private async Task<RiskStatus> RiskOf(Guid order)
+    {
+        var status = RiskStatus.NotChecked;
+        await WithDb(async db => status = (await db.Orders.AsNoTracking().SingleAsync(o => o.Id == order)).RiskStatus);
+        return status;
+    }
+
+    [Fact]
+    public async Task Fraud_off_writes_no_risk_event_and_never_holds_orders()
+    {
+        var order = await Create();
+
+        await WithDb(async db => Assert.False(await db.OutboxMessages.AnyAsync(m => m.Type == RiskCheckType)));
+        Assert.Equal(RiskStatus.NotChecked, await RiskOf(order.Id));
+        _users.Verify(users => users.GetRiskProfileAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        Assert.Equal(OrderStatus.Confirmed, (await Progress(order.Id, "confirm")).Status);
+    }
+
+    [Fact]
+    public async Task Fraud_on_writes_the_risk_event_in_the_order_transaction()
+    {
+        UseFraud(ECommerce.Application.Common.Fraud.FraudDetectionMode.Monitor);
+
+        var order = await Send(new CreateOrderCommand
+        {
+            CheckoutRequestId = Guid.NewGuid(), UserId = _customer, CartId = "test-cart", ShippingAddressId = _address,
+            PaymentMethod = PaymentMethod.CreditCard, ClientIpAddress = "203.0.113.5", UserAgent = "IntegrationTest/1.0"
+        });
+
+        await WithDb(async db =>
+        {
+            var outbox = await db.OutboxMessages.SingleAsync(m => m.Type == RiskCheckType);
+            var message = System.Text.Json.JsonSerializer.Deserialize<ECommerce.Contracts.Fraud.OrderRiskCheckRequested>(outbox.Payload)!;
+            Assert.Equal(order.Id, message.OrderId);
+            Assert.Equal(_customer, message.Customer.UserId);
+            Assert.Equal("example.invalid", message.Customer.EmailDomain);
+            Assert.Equal("203.0.113.5", message.Channel.IpAddress);
+            Assert.Equal("IntegrationTest/1.0", message.Channel.UserAgent);
+            Assert.Equal(_address, message.ShippingAddress.AddressId);
+            var item = Assert.Single(message.Items);
+            Assert.Equal(_product, item.ProductId);
+            Assert.Equal(Guid.Parse("a1111111-1111-1111-1111-111111111111"), item.CategoryId);
+            Assert.Equal(2, item.Quantity);
+            Assert.Equal(100m, item.UnitPrice);
+            Assert.Equal(order.TotalAmount, message.TotalAmount);
+            Assert.Equal(ECommerce.Contracts.Fraud.PaymentMethods.CreditCard, message.PaymentMethod);
+        });
+    }
+
+    [Fact]
+    public async Task Failed_checkout_writes_no_risk_event()
+    {
+        UseFraud(ECommerce.Application.Common.Fraud.FraudDetectionMode.Enforce);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => Create(_otherAddress));
+
+        await WithDb(async db => Assert.False(await db.OutboxMessages.AnyAsync(m => m.Type == RiskCheckType)));
+    }
+
+    [Fact]
+    public async Task Enforce_holds_a_reviewed_order_until_the_analyst_approves()
+    {
+        UseFraud(ECommerce.Application.Common.Fraud.FraudDetectionMode.Enforce);
+        var order = await Create();
+        Assert.Equal(ECommerce.Application.Features.Orders.Commands.ApplyRiskDecision.RiskDecisionResult.Applied,
+            await Assess(order.Id, ECommerce.Contracts.Fraud.RiskDecisions.Review));
+
+        var held = await Assert.ThrowsAsync<InvalidOperationException>(() => Progress(order.Id, "confirm"));
+        Assert.Contains("ek kontrol", held.Message);
+        await WithDb(async db =>
+        {
+            Assert.Equal(OrderStatus.Pending, (await db.Orders.SingleAsync()).Status);
+            Assert.Equal(PaymentStatus.Pending, (await db.Payments.SingleAsync()).Status);
+        });
+
+        await Review(order.Id, ECommerce.Contracts.Fraud.ReviewOutcomes.Approved);
+
+        Assert.Equal(OrderStatus.Confirmed, (await Progress(order.Id, "confirm")).Status);
+        Assert.Equal(RiskStatus.Clear, await RiskOf(order.Id));
+    }
+
+    [Fact]
+    public async Task Enforce_rejection_cancels_the_order_and_restores_stock()
+    {
+        UseFraud(ECommerce.Application.Common.Fraud.FraudDetectionMode.Enforce);
+        var order = await Create();
+        await Assess(order.Id, ECommerce.Contracts.Fraud.RiskDecisions.Review);
+
+        await Review(order.Id, ECommerce.Contracts.Fraud.ReviewOutcomes.Rejected);
+
+        await WithDb(async db =>
+        {
+            var saved = await db.Orders.SingleAsync();
+            Assert.Equal(OrderStatus.Cancelled, saved.Status);
+            Assert.Equal(RiskStatus.Rejected, saved.RiskStatus);
+            Assert.Equal(PaymentStatus.Failed, (await db.Payments.SingleAsync()).Status);
+            Assert.Equal(10, (await db.Products.FindAsync(_product))!.StockQuantity);
+        });
+    }
+
+    [Fact]
+    public async Task Monitor_records_decisions_but_never_blocks_or_cancels()
+    {
+        UseFraud(ECommerce.Application.Common.Fraud.FraudDetectionMode.Monitor);
+        var order = await Create();
+        await Assess(order.Id, ECommerce.Contracts.Fraud.RiskDecisions.Review);
+
+        Assert.Equal(OrderStatus.Confirmed, (await Progress(order.Id, "confirm")).Status);
+        await Review(order.Id, ECommerce.Contracts.Fraud.ReviewOutcomes.Rejected);
+
+        await WithDb(async db =>
+        {
+            var saved = await db.Orders.SingleAsync();
+            Assert.Equal(OrderStatus.Confirmed, saved.Status);
+            Assert.Equal(RiskStatus.Rejected, saved.RiskStatus);
+            Assert.Equal(8, (await db.Products.FindAsync(_product))!.StockQuantity);
+        });
+    }
+
+    [Fact]
+    public async Task Enforce_fails_open_while_no_decision_has_arrived()
+    {
+        UseFraud(ECommerce.Application.Common.Fraud.FraudDetectionMode.Enforce);
+        var order = await Create();
+
+        Assert.Equal(OrderStatus.Confirmed, (await Progress(order.Id, "confirm")).Status);
+    }
+
+    [Fact]
+    public async Task Late_assessment_does_not_override_the_analyst_or_unknown_orders()
+    {
+        UseFraud(ECommerce.Application.Common.Fraud.FraudDetectionMode.Enforce);
+        var order = await Create();
+        await Review(order.Id, ECommerce.Contracts.Fraud.ReviewOutcomes.Approved);
+
+        Assert.Equal(ECommerce.Application.Features.Orders.Commands.ApplyRiskDecision.RiskDecisionResult.IgnoredStale,
+            await Assess(order.Id, ECommerce.Contracts.Fraud.RiskDecisions.Review));
+        Assert.Equal(RiskStatus.Clear, await RiskOf(order.Id));
+        Assert.Equal(ECommerce.Application.Features.Orders.Commands.ApplyRiskDecision.RiskDecisionResult.IgnoredUnknownOrder,
+            await Assess(Guid.NewGuid(), ECommerce.Contracts.Fraud.RiskDecisions.Review));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Assess(order.Id, "Maybe"));
     }
 
 }

@@ -70,7 +70,33 @@ public class UpdateOrderItemStatusTests
         order.Status.Should().Be(OrderStatus.Shipped);
     }
 
-    private static UpdateOrderItemStatusCommandHandler CreateHandler(Order order)
+    [Fact]
+    public async Task Seller_cannot_start_preparing_an_order_held_by_fraud_review_in_enforce_mode()
+    {
+        // "prepare" siparişi onaylar ve ödemeyi tamamlar: onayla aynı fraud kontrol noktasından geçmeli.
+        var sellerId = Guid.NewGuid();
+        var item = CreateItem(sellerId);
+        var order = CreateOrder(item);
+        order.Payment = new Payment { Id = Guid.NewGuid(), OrderId = order.Id, Amount = 10 };
+        order.ApplyRiskAssessment(requiresReview: true);
+        var handler = CreateHandler(order, new ECommerce.Application.Common.Fraud.FraudDetectionSettings
+        {
+            Enabled = true, Mode = ECommerce.Application.Common.Fraud.FraudDetectionMode.Enforce
+        });
+
+        var act = () => handler.Handle(new UpdateOrderItemStatusCommand
+        {
+            OrderId = order.Id, OrderItemId = item.Id, RequesterId = sellerId, Action = "prepare"
+        }, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ek kontrol*");
+        item.Status.Should().Be(OrderItemStatus.Pending);
+        order.Status.Should().Be(OrderStatus.Pending);
+        order.Payment.Status.Should().Be(PaymentStatus.Pending);
+    }
+
+    private static UpdateOrderItemStatusCommandHandler CreateHandler(Order order,
+        ECommerce.Application.Common.Fraud.FraudDetectionSettings? fraud = null)
     {
         var repository = new Mock<IOrderRepository>();
         repository.Setup(value => value.GetOrderWithItemsAsync(order.Id)).ReturnsAsync(order);
@@ -91,7 +117,8 @@ public class UpdateOrderItemStatusTests
                 Status = item.Status
             });
 
-        return new UpdateOrderItemStatusCommandHandler(unitOfWork.Object, mapper.Object);
+        return new UpdateOrderItemStatusCommandHandler(unitOfWork.Object, mapper.Object,
+            new ECommerce.Application.Common.Fraud.FraudGate(fraud ?? new ECommerce.Application.Common.Fraud.FraudDetectionSettings()));
     }
 
     private static Order CreateOrder(params OrderItem[] items)

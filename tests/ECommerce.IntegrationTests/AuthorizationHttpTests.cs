@@ -79,6 +79,8 @@ public sealed class AuthorizationHttpTests : IAsyncLifetime
         builder.Services.AddSingleton(Mock.Of<ICacheService>());
         builder.Services.AddSingleton(Mock.Of<ISearchService>());
         builder.Services.AddSingleton(Mock.Of<IProductImageStorage>());
+        builder.Services.RemoveAll<IUserLookupService>();
+        builder.Services.AddSingleton(Mock.Of<IUserLookupService>());
         builder.Services.AddMarketplaceAuthorization();
         builder.Services.AddControllers().AddApplicationPart(typeof(ProductsController).Assembly);
         _app = builder.Build();

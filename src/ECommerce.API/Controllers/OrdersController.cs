@@ -49,7 +49,10 @@ namespace ECommerce.API.Controllers
                 ShippingAddressId = request.ShippingAddressId,
                 PaymentMethod = request.PaymentMethod,
                 Note = request.Note,
-                CouponCode = request.CouponCode
+                CouponCode = request.CouponCode,
+                // UseForwardedHeaders sayesinde yalnızca güvenilir proxy'den gelen X-Forwarded-For kullanılır.
+                ClientIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                UserAgent = Request.Headers.UserAgent.ToString()
             };
 
             var result = await _mediator.Send(command);

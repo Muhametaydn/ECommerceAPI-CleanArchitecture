@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "eventId": "0c8e4f2a-6b1d-4a9e-8c3f-7d5e2b1a0f96",
+  "occurredAt": "2026-11-20T12:30:02+00:00",
+  "orderId": "3d9b6c2f-1a4e-4f8b-b7d2-5e6a9c0f1b23",
+  "assessmentId": "4e7a1c9b-3f2d-4b8e-a6c5-1d0f9e8b7a63",
+  "score": 75,
+  "riskLevel": "High",
+  "decision": "Review",
+  "reasons": [
+    {
+      "ruleCode": "NEW_ACCOUNT_HIGH_VALUE",
+      "points": 45,
+      "description": "Hesap 25 dakika önce açıldı, sipariş tutarı 194.999,70 TRY"
+    },
+    {
+      "ruleCode": "HIGH_RISK_BASKET",
+      "points": 30,
+      "description": "Elektronik kategorisinden 3 adet aynı ürün"
+    }
+  ],
+  "policyVersion": "2026.11-1"
+}

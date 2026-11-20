@@ -9,6 +9,6 @@ namespace ECommerce.Application.Common.Interfaces
     {
         /// <summary>Integration event'i yayımlar (publish eder)</summary>
         Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
-            where TEvent : IIntegrationEvent;
+            where TEvent : class;
     }
 }

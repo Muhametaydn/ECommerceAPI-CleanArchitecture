@@ -80,6 +80,8 @@ namespace ECommerce.Infrastructure
 
             // ── MassTransit + RabbitMQ ─────────────────────────────────────────
             var rabbitSettings = configuration.GetSection(RabbitMQSettings.SectionName).Get<RabbitMQSettings>()!;
+            var fraudSettings = configuration.GetSection(ECommerce.Application.Common.Fraud.FraudDetectionSettings.SectionName)
+                .Get<ECommerce.Application.Common.Fraud.FraudDetectionSettings>() ?? new();
 
             services.AddMassTransit(x =>
             {
@@ -88,6 +90,13 @@ namespace ECommerce.Infrastructure
                 x.AddConsumer<OrderStatusChangedConsumer>();
                 x.AddConsumer<PaymentProcessedConsumer>();
                 x.AddConsumer<LowStockAlertConsumer>();
+
+                // Fraud kapalıyken fraud kuyrukları hiç oluşturulmaz; servis çalışsa bile kararlar dinlenmez.
+                if (fraudSettings.Enabled)
+                {
+                    x.AddConsumer<Consumers.Fraud.OrderRiskAssessedConsumer>();
+                    x.AddConsumer<Consumers.Fraud.OrderRiskReviewedConsumer>();
+                }
 
                 x.UsingRabbitMq((ctx, cfg) =>
                 {

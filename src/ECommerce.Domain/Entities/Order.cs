@@ -21,6 +21,42 @@ namespace ECommerce.Domain.Entities
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
         public Payment? Payment { get; set; }
 
+        /// <summary>Fraud değerlendirme durumu. Yalnızca aşağıdaki risk metodlarıyla değişir.</summary>
+        public Enums.RiskStatus RiskStatus { get; private set; } = Enums.RiskStatus.NotChecked;
+
+        /// <summary>İncelemede veya reddedilmiş sipariş, uygulama (Enforce) modunda ilerletilemez.</summary>
+        public bool IsHeldByRiskReview => RiskStatus is Enums.RiskStatus.Review or Enums.RiskStatus.Rejected;
+
+        // ── Fraud (risk) kararları ────────────────────────────────────────────
+        // Mesajlar sırasız ve tekrar gelebilir (at-least-once). Bu metodlar idempotenttir:
+        // geçersiz/eski bir geçiş istisna fırlatmaz, false döner ve hiçbir şeyi değiştirmez.
+
+        /// <summary>Otomatik değerlendirme sonucu. Yalnızca henüz değerlendirilmemiş siparişe uygulanır.</summary>
+        public bool ApplyRiskAssessment(bool requiresReview)
+        {
+            if (RiskStatus != Enums.RiskStatus.NotChecked)
+                return false;
+
+            RiskStatus = requiresReview ? Enums.RiskStatus.Review : Enums.RiskStatus.Clear;
+            UpdateAt = DateTime.UtcNow;
+            return true;
+        }
+
+        /// <summary>
+        /// Analistin nihai kararı. İnceleme bekleyen siparişe uygulanır; analist kararı
+        /// otomatik değerlendirmeden önce ulaşırsa (sırasız teslimat) yine geçerlidir.
+        /// Reddedilmiş sipariş sonradan onaylanamaz.
+        /// </summary>
+        public bool ApplyRiskReview(bool approved)
+        {
+            if (RiskStatus is not (Enums.RiskStatus.NotChecked or Enums.RiskStatus.Review))
+                return false;
+
+            RiskStatus = approved ? Enums.RiskStatus.Clear : Enums.RiskStatus.Rejected;
+            UpdateAt = DateTime.UtcNow;
+            return true;
+        }
+
         // ── Fabrika metodu (CreateOrderCommandHandler kullanır) ───────────────
         public static string GenerateOrderNumber()
             => $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";

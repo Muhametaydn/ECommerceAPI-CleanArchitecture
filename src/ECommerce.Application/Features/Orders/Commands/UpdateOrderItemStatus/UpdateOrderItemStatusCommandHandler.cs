@@ -12,9 +12,11 @@ public class UpdateOrderItemStatusCommandHandler
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly ECommerce.Application.Common.Fraud.IFraudGate _fraudGate;
 
-    public UpdateOrderItemStatusCommandHandler(IUnitOfWork unitOfWork, IMapper mapper)
+    public UpdateOrderItemStatusCommandHandler(IUnitOfWork unitOfWork, IMapper mapper, ECommerce.Application.Common.Fraud.IFraudGate fraudGate)
     {
+        _fraudGate = fraudGate;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
@@ -37,6 +39,8 @@ public class UpdateOrderItemStatusCommandHandler
         switch (request.Action.ToLowerInvariant())
         {
             case "prepare":
+                // Satıcının hazırlamaya başlaması siparişi onaylar ve ödemeyi tamamlar: aynı fraud kontrol noktası.
+                _fraudGate.EnsureOrderCanBeConfirmed(order);
                 item.StartPreparing();
                 if (order.Payment is { Status: PaymentStatus.Pending })
                     order.Payment.MarkAsCompleted($"TXN-{Guid.NewGuid().ToString()[..8].ToUpper()}");

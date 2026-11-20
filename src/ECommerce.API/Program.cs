@@ -53,6 +53,10 @@ try
 
     // ── Katman servisleri ─────────────────────────────────────────────────────
     builder.Services.AddApplicationServices();
+    // Fraud entegrasyonu (varsayılan kapalı). Geçersiz Mode değeri açılışta hata verir.
+    builder.Services.AddSingleton(builder.Configuration
+        .GetSection(ECommerce.Application.Common.Fraud.FraudDetectionSettings.SectionName)
+        .Get<ECommerce.Application.Common.Fraud.FraudDetectionSettings>() ?? new());
     builder.Services.AddPersistenceServices(builder.Configuration);
     builder.Services.AddCartServices(builder.Configuration);
 

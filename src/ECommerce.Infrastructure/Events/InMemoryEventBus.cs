@@ -18,13 +18,16 @@ namespace ECommerce.Infrastructure.Events
         }
 
         public Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
-            where TEvent : IIntegrationEvent
+            where TEvent : class
         {
-            _logger.LogInformation(
-                "[InMemoryEventBus] Integration event yayımlandı: {EventType} | EventId: {EventId} | OccurredOn: {OccurredOn}",
-                integrationEvent.EventType,
-                integrationEvent.EventId,
-                integrationEvent.OccurredOn);
+            if (integrationEvent is IIntegrationEvent described)
+                _logger.LogInformation(
+                    "[InMemoryEventBus] Integration event yayımlandı: {EventType} | EventId: {EventId} | OccurredOn: {OccurredOn}",
+                    described.EventType,
+                    described.EventId,
+                    described.OccurredOn);
+            else
+                _logger.LogInformation("[InMemoryEventBus] Olay yayımlandı: {EventType}", typeof(TEvent).Name);
 
             // TODO (Faz 4b): RabbitMQ/MassTransit ile gerçek publish
             return Task.CompletedTask;

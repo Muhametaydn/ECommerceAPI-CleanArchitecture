@@ -187,6 +187,8 @@ API: **http://localhost:8080** | Swagger: **http://localhost:8080/swagger**
 | `ConnectionStrings__Redis` | Redis connection string | `localhost:6379` |
 | `JwtSettings__SecretKey` | JWT signing key (≥32 random bytes). `JWT_SECRET_KEY` in compose | — (required) |
 | `ReverseProxy__KnownProxies__0` / `ReverseProxy__KnownNetworks__0` | Proxy IP / network (CIDR) whose `X-Forwarded-For` is trusted. Set it to the frontend server | loopback only |
+| `FraudDetection__Enabled` | Fraud service integration (`ECommerceFraud` repo). While off, the order flow is unchanged | `false` |
+| `FraudDetection__Mode` | `Monitor`: decisions are recorded, orders are never held. `Enforce`: orders under review cannot be confirmed; an analyst rejection cancels the order | `Monitor` |
 | `RabbitMQ__Host` | RabbitMQ host | `localhost` |
 | `Elasticsearch__Uri` | Elasticsearch URI | `http://localhost:9200` |
 | `Email__Host` | SMTP host | `localhost` |

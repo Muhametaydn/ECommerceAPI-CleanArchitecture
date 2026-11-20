@@ -188,6 +188,8 @@ API: **http://localhost:8080** | Swagger: **http://localhost:8080/swagger**
 | `ConnectionStrings__Redis` | Redis bağlantı dizesi | `localhost:6379` |
 | `JwtSettings__SecretKey` | JWT imzalama anahtarı (≥32 bayt, rastgele). Compose'ta `JWT_SECRET_KEY` | — (zorunlu) |
 | `ReverseProxy__KnownProxies__0` / `ReverseProxy__KnownNetworks__0` | `X-Forwarded-For` başlığına güvenilecek proxy IP'si / ağı (CIDR). Frontend sunucusunun adresi verilmeli | yalnızca loopback |
+| `FraudDetection__Enabled` | Fraud servisi entegrasyonu (`ECommerceFraud` reposu). Kapalıyken sipariş akışı birebir aynıdır | `false` |
+| `FraudDetection__Mode` | `Monitor`: kararlar kaydedilir, sipariş bekletilmez. `Enforce`: incelemedeki sipariş onaylanamaz, analist reddederse iptal edilir | `Monitor` |
 | `RabbitMQ__Host` | RabbitMQ host | `localhost` |
 | `Elasticsearch__Uri` | Elasticsearch URI | `http://localhost:9200` |
 | `Email__Host` | SMTP host | `localhost` |

@@ -380,6 +380,12 @@ namespace ECommerce.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<int>("RiskStatus")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<Guid>("ShippingAddressId")
                         .HasColumnType("uuid");
 
@@ -408,6 +414,8 @@ namespace ECommerce.Persistence.Migrations
 
                     b.HasIndex("OrderNumber")
                         .IsUnique();
+
+                    b.HasIndex("RiskStatus");
 
                     b.HasIndex("ShippingAddressId");
 

@@ -29,5 +29,11 @@ namespace ECommerce.Application.Features.Orders.Commands.CreateOrder
 
         /// <summary>Kupon kodu (opsiyonel)</summary>
         public string? CouponCode { get; set; }
+
+        /// <summary>İstemci IP'si (güvenilir proxy zincirinden çözülmüş). Yalnızca fraud değerlendirmesi için.</summary>
+        public string? ClientIpAddress { get; set; }
+
+        /// <summary>İstemci User-Agent başlığı. Yalnızca fraud değerlendirmesi için.</summary>
+        public string? UserAgent { get; set; }
     }
 }

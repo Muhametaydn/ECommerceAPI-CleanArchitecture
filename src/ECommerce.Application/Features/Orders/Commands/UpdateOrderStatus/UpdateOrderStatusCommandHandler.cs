@@ -10,9 +10,11 @@ namespace ECommerce.Application.Features.Orders.Commands.UpdateOrderStatus
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly ECommerce.Application.Common.Fraud.IFraudGate _fraudGate;
 
-        public UpdateOrderStatusCommandHandler(IUnitOfWork unitOfWork, IMapper mapper)
+        public UpdateOrderStatusCommandHandler(IUnitOfWork unitOfWork, IMapper mapper, ECommerce.Application.Common.Fraud.IFraudGate fraudGate)
         {
+            _fraudGate = fraudGate;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
         }
@@ -39,6 +41,8 @@ namespace ECommerce.Application.Features.Orders.Commands.UpdateOrderStatus
             switch (request.Action.ToLowerInvariant())
             {
                 case "confirm":
+                    // Onay ödemeyi de tamamlar: fraud kontrol noktası burası.
+                    _fraudGate.EnsureOrderCanBeConfirmed(order);
                     order.Confirm();
                     foreach (var item in order.OrderItems.Where(item => item.Status == Domain.Enums.OrderItemStatus.Pending))
                         item.StartPreparing();

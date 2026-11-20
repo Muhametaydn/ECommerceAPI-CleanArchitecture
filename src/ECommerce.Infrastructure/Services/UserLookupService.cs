@@ -35,5 +35,11 @@ namespace ECommerce.Infrastructure.Services
 
             return (email, fullName);
         }
+
+        public async Task<UserRiskProfile?> GetRiskProfileAsync(Guid userId, CancellationToken ct = default)
+        {
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            return user is null ? null : new UserRiskProfile(user.CreatedAt, user.Email ?? string.Empty, user.EmailConfirmed);
+        }
     }
 }

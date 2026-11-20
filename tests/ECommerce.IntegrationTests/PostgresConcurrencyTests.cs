@@ -63,6 +63,7 @@ public sealed class PostgresConcurrencyTests : IAsyncLifetime
         services.AddLogging();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         services.AddApplicationServices();
+        services.AddSingleton(Mock.Of<IUserLookupService>());
         services.AddPersistenceServices(new ConfigurationBuilder().Build());
         services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(target.ConnectionString));
         services.AddSingleton(Mock.Of<ICacheService>());

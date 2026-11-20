@@ -67,7 +67,8 @@ public class UpdateOrderStatusSellerAuthorizationTests
             .ReturnsAsync(order);
         var unitOfWork = new Mock<IUnitOfWork>();
         unitOfWork.SetupGet(value => value.Order).Returns(orderRepository.Object);
-        return new UpdateOrderStatusCommandHandler(unitOfWork.Object, Mock.Of<IMapper>());
+        return new UpdateOrderStatusCommandHandler(unitOfWork.Object, Mock.Of<IMapper>(),
+            new ECommerce.Application.Common.Fraud.FraudGate(new ECommerce.Application.Common.Fraud.FraudDetectionSettings()));
     }
 
     private static Order CreateOrderWithSeller(Guid sellerId)

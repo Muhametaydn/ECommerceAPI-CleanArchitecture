@@ -20,6 +20,11 @@ public static class ServiceRegistration
         });
         services.AddAutoMapper(_ => { }, Assembly.GetExecutingAssembly());
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // Fraud varsayılan olarak kapalı. API, "FraudDetection" ayarını okuyup bu kaydın yerine geçer.
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions
+            .TryAddSingleton(services, new Common.Fraud.FraudDetectionSettings());
+        services.AddScoped<Common.Fraud.IFraudGate, Common.Fraud.FraudGate>();
         return services;
     }
 }
