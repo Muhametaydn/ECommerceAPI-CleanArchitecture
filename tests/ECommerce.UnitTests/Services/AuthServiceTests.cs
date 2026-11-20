@@ -293,7 +293,7 @@ public class AuthServiceTests : IDisposable
         await _context.SaveChangesAsync();
 
         // Act
-        await _authService.RevokeTokenAsync("token-to-revoke");
+        await _authService.RevokeTokenAsync("token-to-revoke", userId);
 
         // Assert
         var revokedToken = await _context.RefreshTokens.FirstAsync(t => t.Token == "token-to-revoke");
@@ -306,7 +306,7 @@ public class AuthServiceTests : IDisposable
     {
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _authService.RevokeTokenAsync("nonexistent-token"));
+            () => _authService.RevokeTokenAsync("nonexistent-token", Guid.NewGuid()));
     }
 
     [Fact]
@@ -322,7 +322,128 @@ public class AuthServiceTests : IDisposable
 
         // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _authService.RevokeTokenAsync("already-revoked"));
+            () => _authService.RevokeTokenAsync("already-revoked", userId));
+    }
+
+    // ── SECURITY HARDENING TESTS ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task RevokeTokenAsync_WithAnotherUsersToken_ThrowsAndKeepsTokenActive()
+    {
+        var owner = Guid.NewGuid();
+        _context.RefreshTokens.Add(RefreshToken.Create(owner, "victim-token", 7, "127.0.0.1"));
+        await _context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _authService.RevokeTokenAsync("victim-token", Guid.NewGuid()));
+
+        (await _context.RefreshTokens.SingleAsync()).IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task LoginAsync_WithWrongPassword_RecordsFailedAttempt()
+    {
+        var user = ApplicationUser.Create("Test", "User", "test@example.com", "testuser");
+        user.EmailConfirmed = true;
+        _userManagerMock.Setup(x => x.FindByEmailAsync("test@example.com")).ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.CheckPasswordAsync(user, "wrong")).ReturnsAsync(false);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _authService.LoginAsync(new LoginRequest { Email = "test@example.com", Password = "wrong" }, "127.0.0.1"));
+
+        _userManagerMock.Verify(x => x.AccessFailedAsync(user), Times.Once);
+        _userManagerMock.Verify(x => x.ResetAccessFailedCountAsync(It.IsAny<ApplicationUser>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenLockedOut_RejectsEvenCorrectPasswordWithoutCheckingIt()
+    {
+        var user = ApplicationUser.Create("Test", "User", "test@example.com", "testuser");
+        user.EmailConfirmed = true;
+        _userManagerMock.Setup(x => x.FindByEmailAsync("test@example.com")).ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.IsLockedOutAsync(user)).ReturnsAsync(true);
+
+        var error = await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _authService.LoginAsync(new LoginRequest { Email = "test@example.com", Password = "Test1234!@#" }, "127.0.0.1"));
+
+        error.Message.Should().Contain("Çok fazla hatalı giriş");
+        _userManagerMock.Verify(x => x.CheckPasswordAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>()), Times.Never);
+        (await _context.RefreshTokens.AnyAsync()).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task LoginAsync_WithCorrectPassword_ResetsFailedAttemptCounter()
+    {
+        var user = ApplicationUser.Create("Test", "User", "test@example.com", "testuser");
+        user.EmailConfirmed = true;
+        _userManagerMock.Setup(x => x.FindByEmailAsync("test@example.com")).ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.CheckPasswordAsync(user, "Test1234!@#")).ReturnsAsync(true);
+        _userManagerMock.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string> { AppRoles.Customer });
+
+        await _authService.LoginAsync(new LoginRequest { Email = "test@example.com", Password = "Test1234!@#" }, "127.0.0.1");
+
+        _userManagerMock.Verify(x => x.ResetAccessFailedCountAsync(user), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_ReusingRotatedTokenAfterGracePeriod_RevokesAllUserSessions()
+    {
+        var user = ApplicationUser.Create("Test", "User", "test@example.com", "testuser");
+        user.EmailConfirmed = true;
+        _context.Set<ApplicationUser>().Add(user);
+        var stolen = RefreshToken.Create(user.Id, "stolen-token", 7, "127.0.0.1");
+        stolen.Revoke("attacker-or-victim-current-token");
+        var current = RefreshToken.Create(user.Id, "attacker-or-victim-current-token", 7, "127.0.0.1");
+        _context.RefreshTokens.AddRange(stolen, current);
+        await _context.SaveChangesAsync();
+        _context.Entry(stolen).Property(t => t.RevokedAt).CurrentValue = DateTime.UtcNow.AddMinutes(-5);
+        await _context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _authService.RefreshTokenAsync("stolen-token", "10.0.0.66"));
+
+        (await _context.RefreshTokens.AnyAsync(t => t.UserId == user.Id && t.RevokedAt == null))
+            .Should().BeFalse("reuse of a rotated token means the token family is compromised");
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_ReusingJustRotatedToken_DoesNotLogOutConcurrentTab()
+    {
+        var user = ApplicationUser.Create("Test", "User", "test@example.com", "testuser");
+        user.EmailConfirmed = true;
+        _context.Set<ApplicationUser>().Add(user);
+        var old = RefreshToken.Create(user.Id, "old-token", 7, "127.0.0.1");
+        old.Revoke("new-token");
+        _context.RefreshTokens.AddRange(old, RefreshToken.Create(user.Id, "new-token", 7, "127.0.0.1"));
+        await _context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => _authService.RefreshTokenAsync("old-token", "127.0.0.1"));
+
+        (await _context.RefreshTokens.SingleAsync(t => t.Token == "new-token")).IsActive.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("too-short")]
+    [InlineData("CHANGE-THIS-TO-A-STRONG-SECRET-KEY-AT-LEAST-32-CHARACTERS")]
+    [InlineData("change-me-min-32-chars-please!!-padding")]
+    public void JwtSettings_RejectsMissingShortOrPlaceholderSecret(string secret)
+    {
+        var settings = new JwtSettings { SecretKey = secret };
+
+        settings.Invoking(s => s.EnsureSecretKeyIsSafe()).Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void JwtSettings_AcceptsRandom256BitSecret()
+    {
+        var settings = new JwtSettings
+        {
+            SecretKey = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
+        };
+
+        settings.Invoking(s => s.EnsureSecretKeyIsSafe()).Should().NotThrow();
     }
 
     public void Dispose()

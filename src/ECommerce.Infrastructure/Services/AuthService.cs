@@ -72,8 +72,20 @@ namespace ECommerce.Infrastructure.Services
             if (!user.IsActive)
                 throw new UnauthorizedAccessException("Hesabınız devre dışı bırakılmış.");
 
+            // Brute-force koruması: art arda hatalı denemeler hesabı geçici olarak kilitler
+            // (eşik ve süre Program.cs'teki Identity Lockout ayarlarından gelir).
+            if (await _userManager.IsLockedOutAsync(user))
+                throw new UnauthorizedAccessException(LockedOutMessage);
+
             if (!await _userManager.CheckPasswordAsync(user, request.Password))
+            {
+                await _userManager.AccessFailedAsync(user);
+                if (await _userManager.IsLockedOutAsync(user))
+                    throw new UnauthorizedAccessException(LockedOutMessage);
                 throw new UnauthorizedAccessException("E-posta veya şifre hatalı.");
+            }
+
+            await _userManager.ResetAccessFailedCountAsync(user);
 
             if (!user.EmailConfirmed)
                 throw new UnauthorizedAccessException("E-posta adresinizi doğrulamanız gerekiyor.");
@@ -98,7 +110,18 @@ namespace ECommerce.Infrastructure.Services
                 ?? throw new UnauthorizedAccessException("Geçersiz refresh token.");
 
             if (!token.IsActive)
+            {
+                // Rotasyonla değiştirilmiş bir token'ın tekrar kullanılması çalınma belirtisidir:
+                // kullanıcının tüm oturumları kapatılır. Kısa tolerans, aynı anda yenileyen
+                // iki sekmenin meşru yarışını kapsar.
+                if (token.ReplacedByToken is not null
+                    && token.RevokedAt < DateTime.UtcNow - RefreshReuseGracePeriod)
+                {
+                    await RevokeAllActiveTokensAsync(token.UserId);
+                }
+
                 throw new UnauthorizedAccessException("Refresh token süresi dolmuş veya iptal edilmiş.");
+            }
 
             var user = token.User;
 
@@ -140,17 +163,45 @@ namespace ECommerce.Infrastructure.Services
         }
 
         // ── REVOKE ────────────────────────────────────────────────────────
-        public async Task RevokeTokenAsync(string refreshToken)
+        public async Task RevokeTokenAsync(string refreshToken, Guid requesterId)
         {
             var token = await _context.RefreshTokens
                 .FirstOrDefaultAsync(rt => rt.Token == refreshToken)
                 ?? throw new UnauthorizedAccessException("Geçersiz refresh token.");
+
+            // Başka bir kullanıcının oturumu kapatılamaz; varlığı da açığa çıkarılmaz.
+            if (token.UserId != requesterId)
+                throw new UnauthorizedAccessException("Geçersiz refresh token.");
 
             if (!token.IsActive)
                 throw new InvalidOperationException("Token zaten iptal edilmiş veya süresi dolmuş.");
 
             token.Revoke();
             await _context.SaveChangesAsync();
+        }
+
+        private const string LockedOutMessage =
+            "Çok fazla hatalı giriş denemesi. Lütfen birkaç dakika sonra tekrar deneyin.";
+
+        internal static readonly TimeSpan RefreshReuseGracePeriod = TimeSpan.FromSeconds(30);
+
+        private async Task RevokeAllActiveTokensAsync(Guid userId)
+        {
+            var activeTokens = await _context.RefreshTokens
+                .Where(rt => rt.UserId == userId && rt.RevokedAt == null && rt.ExpiresAt > DateTime.UtcNow)
+                .ToListAsync();
+
+            foreach (var active in activeTokens)
+                active.Revoke();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Eşzamanlı bir yenileme/çıkış zaten bazılarını iptal etti; sonuç aynı.
+            }
         }
 
         // ── YARDIMCI METODLAR ─────────────────────────────────────────────

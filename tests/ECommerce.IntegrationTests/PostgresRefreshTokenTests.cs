@@ -90,7 +90,7 @@ public sealed class PostgresRefreshTokenTests : IAsyncLifetime
     {
         using var logout = _services!.CreateScope(); using var stale = _services!.CreateScope();
         await Preload(logout); await Preload(stale);
-        await logout.ServiceProvider.GetRequiredService<AuthService>().RevokeTokenAsync(OldToken);
+        await logout.ServiceProvider.GetRequiredService<AuthService>().RevokeTokenAsync(OldToken, _userId);
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => stale.ServiceProvider.GetRequiredService<AuthService>().RefreshTokenAsync(OldToken, "127.0.0.2"));
         using var verification = _services!.CreateScope();
         var token = await verification.ServiceProvider.GetRequiredService<ApplicationDbContext>().RefreshTokens.AsNoTracking().SingleAsync();

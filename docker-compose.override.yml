@@ -9,6 +9,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      # Yalnızca geliştirme: rastgele üretilmiş dev anahtarı ve bilinen parolalı demo hesaplar.
+      - JwtSettings__SecretKey=${JWT_SECRET_KEY:-dev-only-616a007def31efb3bc2ce6e49fb18cf005cf3577cdf98e87}
+      - SeedDemoUsers__Enabled=true
     # Dev'de kaynak kodu mount etmek yerine build kullan
     # Hot reload için: dotnet watch run (container dışında)
 

@@ -70,6 +70,10 @@ try
         options.Password.RequiredLength = 8;
         options.User.RequireUniqueEmail = true;
         options.SignIn.RequireConfirmedEmail = true;
+        // Brute-force koruması: 5 hatalı denemede hesap 15 dk kilitlenir.
+        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
@@ -102,35 +106,9 @@ try
     builder.Services.AddHealthChecks();
 
     // ── Rate Limiting ─────────────────────────────────────────────────────────
-    builder.Services.AddRateLimiter(options =>
-    {
-        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
-        options.AddFixedWindowLimiter("auth", opt =>
-        {
-            opt.PermitLimit = 5;
-            opt.Window = TimeSpan.FromMinutes(1);
-            opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-            opt.QueueLimit = 0;
-        });
-
-        options.AddFixedWindowLimiter("api", opt =>
-        {
-            opt.PermitLimit = 30;
-            opt.Window = TimeSpan.FromMinutes(1);
-            opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-            opt.QueueLimit = 2;
-        });
-
-        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
-            RateLimitPartition.GetFixedWindowLimiter(
-                partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                factory: _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = 60,
-                    Window = TimeSpan.FromMinutes(1)
-                }));
-    });
+    // İstemci başına bölümlenmiş limitler + yalnızca güvenilir proxy'lerden X-Forwarded-For.
+    builder.Services.AddTrustedForwardedHeaders(builder.Configuration);
+    builder.Services.AddECommerceRateLimiting();
 
     // ── API Versioning ────────────────────────────────────────────────────────
     builder.Services.AddApiVersioning(options =>
@@ -201,9 +179,14 @@ try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.MigrateAsync();
-        await IdentitySeeder.SeedAsync(
-            scope.ServiceProvider,
-            builder.Configuration.GetValue<bool>("SeedDemoUsers:Enabled"));
+        // Bilinen parolalı demo hesaplar hiçbir koşulda Development dışında oluşturulmaz.
+        var seedDemoUsers = builder.Configuration.GetValue<bool>("SeedDemoUsers:Enabled");
+        if (seedDemoUsers && !app.Environment.IsDevelopment())
+        {
+            Log.Warning("SeedDemoUsers:Enabled yok sayıldı: demo hesaplar yalnızca Development ortamında oluşturulur.");
+            seedDemoUsers = false;
+        }
+        await IdentitySeeder.SeedAsync(scope.ServiceProvider, seedDemoUsers);
     }
 
     // ── Hangfire recurring job kaydı ─────────────────────────────────────────
@@ -226,15 +209,17 @@ try
         app.UseSwaggerUI();
     }
 
+    // İlk sırada: sonraki tüm bileşenler (rate limit, refresh token IP kaydı) gerçek istemci IP'sini görür.
+    app.UseForwardedHeaders();
     app.UseMiddleware<ECommerce.API.Middlewares.GlobalExceptionMiddleware>();
     app.UseMiddleware<ECommerce.API.Middlewares.SecurityHeadersMiddleware>();
     app.UseMiddleware<ECommerce.API.Middlewares.ETagMiddleware>();
     app.UseHttpsRedirection();
     app.UseStaticFiles();
 
-    app.UseRateLimiter();
-
+    // Kimlik doğrulamadan SONRA: "api" limiti oturum açmış kullanıcı başına bölümlenebilsin.
     app.UseAuthentication();
+    app.UseRateLimiter();
     app.UseAuthorization();
 
     // ── Hangfire Dashboard (geliştirme ortamı) ────────────────────────────────

@@ -28,7 +28,9 @@ namespace ECommerce.Infrastructure
             services.Configure<ElasticsearchSettings>(configuration.GetSection(ElasticsearchSettings.SectionName));
 
             // ── JWT Authentication ────────────────────────────────────────────
-            var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()!;
+            var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
+                ?? throw new InvalidOperationException("JwtSettings bölümü yapılandırılmamış.");
+            jwtSettings.EnsureSecretKeyIsSafe();
             var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
 
             services.AddAuthentication(options =>

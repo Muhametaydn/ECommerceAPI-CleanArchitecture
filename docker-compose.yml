@@ -107,8 +107,10 @@ services:
       # Local MailHog only; real SMTP servers must use TLS.
       - EmailSettings__EnableSsl=false
       - EmailSettings__FrontendBaseUrl=http://localhost:3000
-      # Yalnızca bu yerel demo ortamında bilinen admin/satıcı hesaplarını oluşturur.
-      - SeedDemoUsers__Enabled=true
+      # Production: anahtar zorunlu; boş/örnek anahtarla API başlamaz (JWT_SECRET_KEY env veya .env dosyası).
+      - JwtSettings__SecretKey=${JWT_SECRET_KEY:-}
+      # Frontend sunucusu X-Forwarded-For gönderir; yalnızca compose ağındaki proxy'lere güvenilir.
+      - ReverseProxy__KnownNetworks__0=${TRUSTED_PROXY_NETWORK:-172.16.0.0/12}
     depends_on:
       postgres:
         condition: service_healthy

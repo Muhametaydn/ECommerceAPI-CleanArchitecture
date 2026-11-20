@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Asp.Versioning;
 using System.Text.Json.Serialization;
 using ECommerce.Application.Contracts.Identity;
@@ -80,7 +81,8 @@ namespace ECommerce.API.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> RevokeToken([FromBody] RefreshTokenRequest request)
         {
-            await _authService.RevokeTokenAsync(request.RefreshToken);
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _authService.RevokeTokenAsync(request.RefreshToken, userId);
             return NoContent();
         }
 
