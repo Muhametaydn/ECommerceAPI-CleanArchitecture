@@ -85,8 +85,11 @@ namespace ECommerce.Infrastructure.Jobs
                         "[OutboxProcessor] Yayımlandı: {Type} | Id: {Id}",
                         eventType.Name, message.Id);
                 }
-                catch (Exception ex)
+                catch (Exception caught)
                 {
+                    // Reflection ile senkron fırlatılan hatalar TargetInvocationException içinde gelir;
+                    // outbox'a gerçek hata mesajı yazılsın.
+                    var ex = caught is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner : caught;
                     _logger.LogError(ex, "[OutboxProcessor] Hata | MessageId: {Id}", message.Id);
                     await _outboxRepository.MarkAsFailedAsync(message.Id, ex.Message);
                 }

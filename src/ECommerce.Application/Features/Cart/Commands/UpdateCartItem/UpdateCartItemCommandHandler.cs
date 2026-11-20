@@ -30,6 +30,10 @@ namespace ECommerce.Application.Features.Cart.Commands.UpdateCartItem
                 if (product is null)
                     throw new NotFoundException("Product", request.ProductId);
 
+                // AddToCart ile aynı kural: satıştan kalkmış ürünün miktarı artırılamaz.
+                if (!product.IsActive)
+                    throw new InvalidOperationException("Bu ürün şu anda satışta değil.");
+
                 if (request.Quantity > product.StockQuantity)
                     throw new InvalidOperationException(
                         $"Yetersiz stok. Mevcut stok: {product.StockQuantity}, İstenen: {request.Quantity}");
