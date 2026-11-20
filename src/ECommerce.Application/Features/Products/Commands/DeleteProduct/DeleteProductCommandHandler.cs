@@ -36,7 +36,22 @@ public class DeleteProductCommandHandler : IRequestHandler<DeleteProductCommand,
 
         var imageUrl = product.ImageUrl;
 
-        _productRepository.Delete(product);
+        // Siparişlerde geçen ürün fiziksel olarak silinmez: sipariş geçmişi, faturalar ve
+        // iade işlemleri ürüne referans verir. Satıştan kaldırılır (aramadan/listeden çıkar).
+        var isReferencedByOrders = await _unitOfWork.Order
+            .AnyAsync(order => order.OrderItems.Any(item => item.ProductId == request.Id));
+
+        if (isReferencedByOrders)
+        {
+            product.IsActive = false;
+            _productRepository.Update(product);
+            imageUrl = null; // görsel sipariş geçmişinde gösterilmeye devam eder
+        }
+        else
+        {
+            _productRepository.Delete(product);
+        }
+
         await _unitOfWork.SaveChangesAsync();
 
         // Paralel: Redis cache temizle + Elasticsearch'ten kaldır

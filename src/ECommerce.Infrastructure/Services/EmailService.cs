@@ -178,6 +178,7 @@ namespace ECommerce.Infrastructure.Services
             "Shipped"   => "Kargoya Verildi 📦",
             "Delivered" => "Teslim Edildi ✓",
             "Cancelled" => "İptal Edildi ✗",
+            "Refunded"  => "İade Edildi ↩",
             _           => status
         };
     }

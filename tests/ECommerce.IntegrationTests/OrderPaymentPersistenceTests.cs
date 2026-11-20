@@ -45,6 +45,8 @@ public sealed class OrderPaymentPersistenceTests : IAsyncLifetime
         services.AddPersistenceServices(new ConfigurationBuilder().Build());
         services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(_connection));
         services.AddSingleton(_cache.Object);
+        services.AddSingleton(Mock.Of<ISearchService>());
+        services.AddSingleton(Mock.Of<IProductImageStorage>());
         var cartService = new Mock<ICartService>();
         cartService.Setup(value => value.GetCartAsync(It.IsAny<string>())).Returns(() => Task.FromResult(_cart));
         cartService.Setup(value => value.DeleteCartIfUnchangedAsync(It.IsAny<string>(), It.IsAny<Cart>())).Callback(() => { if (_failCleanup) throw new InvalidOperationException("Simulated Redis cleanup failure"); _cart = null; _cartDeleted = true; }).ReturnsAsync(true);
@@ -371,4 +373,47 @@ public sealed class OrderPaymentPersistenceTests : IAsyncLifetime
             Assert.Equal(5, (await db.Products.FindAsync(_secondProduct))!.StockQuantity);
         });
     }
+
+    [Fact]
+    public async Task Deleting_an_ordered_product_keeps_order_history_and_deactivates_it()
+    {
+        // Regression: OrderItem→Product FK Cascade idi; ürün silmek sipariş kalemlerini siliyordu.
+        var order = await Create();
+
+        await Send(new ECommerce.Application.Features.Products.Commands.DeleteProduct.DeleteProductCommand(_product));
+
+        await WithDb(async db =>
+        {
+            var product = await db.Products.IgnoreQueryFilters().SingleAsync(p => p.Id == _product);
+            Assert.False(product.IsActive);
+            var items = await db.OrderItems.Where(i => i.OrderId == order.Id).ToListAsync();
+            Assert.Single(items);
+            Assert.Equal(_product, items[0].ProductId);
+        });
+    }
+
+    [Fact]
+    public async Task Deleting_a_never_ordered_product_removes_it()
+    {
+        await Send(new ECommerce.Application.Features.Products.Commands.DeleteProduct.DeleteProductCommand(_secondProduct));
+
+        await WithDb(async db => Assert.False(await db.Products.IgnoreQueryFilters().AnyAsync(p => p.Id == _secondProduct)));
+    }
+
+    [Fact]
+    public async Task Cancelling_an_order_returns_its_coupon_use()
+    {
+        await WithDb(async db =>
+        {
+            db.Coupons.Add(new Coupon { Id = Guid.NewGuid(), Code = "TEKSEFER", DiscountType = DiscountType.FixedAmount, DiscountValue = 10, MaxUsageCount = 1, ExpiryDate = DateTime.UtcNow.AddDays(1) });
+            await db.SaveChangesAsync();
+        });
+        var order = await Create(coupon: "TEKSEFER");
+        await WithDb(async db => Assert.Equal(1, (await db.Coupons.SingleAsync()).CurrentUsageCount));
+
+        await Send(new CancelOrderCommand { OrderId = order.Id, UserId = _customer });
+
+        await WithDb(async db => Assert.Equal(0, (await db.Coupons.SingleAsync()).CurrentUsageCount));
+    }
+
 }

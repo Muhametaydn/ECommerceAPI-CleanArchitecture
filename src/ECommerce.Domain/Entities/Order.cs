@@ -112,16 +112,29 @@ namespace ECommerce.Domain.Entities
         /// <summary>Siparişi iptal eder</summary>
         public void Cancel()
         {
-            if (Status == Enums.OrderStatus.Delivered
+            if (Status == Enums.OrderStatus.Shipped
+                || Status == Enums.OrderStatus.Delivered
                 || Status == Enums.OrderStatus.Cancelled
                 || Status == Enums.OrderStatus.Refunded)
                 throw new InvalidOperationException(
-                    "Teslim edilmiş, iptal edilmiş veya iade edilmiş sipariş iptal edilemez.");
+                    "Kargoya verilmiş, teslim edilmiş, iptal edilmiş veya iade edilmiş sipariş iptal edilemez.");
 
             Status = Enums.OrderStatus.Cancelled;
             UpdateAt = DateTime.UtcNow;
 
             AddDomainEvent(new OrderCancelledDomainEvent(Id, OrderNumber, UserId));
+        }
+
+        /// <summary>Teslim edilmiş siparişi iade edildi olarak işaretler ve bildirim event'i yayar.</summary>
+        public void MarkAsRefunded()
+        {
+            if (Status != Enums.OrderStatus.Delivered)
+                throw new InvalidOperationException("Sadece teslim edilmiş siparişler iade edilebilir.");
+
+            Status = Enums.OrderStatus.Refunded;
+            UpdateAt = DateTime.UtcNow;
+
+            AddDomainEvent(new OrderRefundedDomainEvent(Id, OrderNumber, UserId));
         }
     }
 }

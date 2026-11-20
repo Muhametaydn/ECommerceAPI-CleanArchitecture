@@ -21,6 +21,13 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.Property(oi => oi.ProductId)
             .IsRequired();
 
+        // Ürün silinince geçmiş sipariş kalemleri ASLA silinmemeli (eskiden Cascade idi:
+        // ürün silmek, o ürünü içeren tüm siparişlerden kalemleri yok ediyordu).
+        builder.HasOne(oi => oi.Product)
+            .WithMany()
+            .HasForeignKey(oi => oi.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.Property(oi => oi.Status)
             .IsRequired()
             .HasConversion<int>();

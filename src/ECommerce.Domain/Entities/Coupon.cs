@@ -39,8 +39,24 @@ namespace ECommerce.Domain.Entities
                 ? orderTotal * (DiscountValue / 100)
                 : DiscountValue;
 
+            // Para kuruş hassasiyetinde tutulur (ör. %33 → 33,333... değil 33,33);
+            // aksi halde sipariş toplamı ile ödeme tutarı yuvarlama farkı üretir.
+            discount = Math.Round(discount, 2, MidpointRounding.AwayFromZero);
+
             // İndirim sipariş tutarını aşamaz
             return Math.Min(discount, orderTotal);
+        }
+
+        /// <summary>
+        /// İptal edilen siparişin harcadığı kullanım hakkını geri verir.
+        /// </summary>
+        public void Release()
+        {
+            if (CurrentUsageCount <= 0)
+                return;
+
+            CurrentUsageCount--;
+            UpdateAt = DateTime.UtcNow;
         }
 
         public void Use() {

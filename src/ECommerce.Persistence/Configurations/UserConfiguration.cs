@@ -14,6 +14,8 @@ namespace ECommerce.Persistence.Configurations
     {
         public void Configure(EntityTypeBuilder<User> builder) 
         { 
+            // DbSet<User> kaldırıldıktan sonra EF tablo adını "User" sanıyordu; mevcut tabloyu sabitle.
+            builder.ToTable("Users");
             builder.HasKey(u => u.Id);
 
             builder.Property(u => u.FirstName)

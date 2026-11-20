@@ -41,6 +41,27 @@ namespace ECommerce.Application.Features.Orders.Commands.CancelOrder
                 }
             }
 
+            // İptal edilen sipariş kuponun kullanım hakkını geri verir
+
+            if (!string.IsNullOrWhiteSpace(order.CouponCode))
+
+            {
+
+                var coupon = await _unitOfWork.Coupon.GetByCodeAsync(order.CouponCode);
+
+                if (coupon != null)
+
+                {
+
+                    coupon.Release();
+
+                    _unitOfWork.Coupon.Update(coupon);
+
+                }
+
+            }
+
+
             // Ödeme varsa Failed olarak işaretle
             if (order.Payment != null && order.Payment.Status == Domain.Enums.PaymentStatus.Pending)
                 order.Payment.MarkAsFailed();

@@ -77,7 +77,7 @@ namespace ECommerce.Infrastructure.Services
                 // Anonim sepetteki ürünleri kullanıcı sepetine aktar
                 foreach (var item in anonCart.Items)
                 {
-                    userCart.AddItem(item.ProductId, item.ProductName, item.UnitPrice, item.Quantity);
+                    userCart.AddItem(item.ProductId, item.ProductName, item.UnitPrice, item.Quantity, item.ProductImageUrl);
                 }
 
                 // Anonim sepeti sil

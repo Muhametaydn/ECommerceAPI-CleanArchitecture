@@ -40,8 +40,7 @@ namespace ECommerce.Application.Features.Payments.Commands.RefundPayment
             _unitOfWork.Payment.Update(payment);
 
             // Sipariş durumunu güncelle
-            order.Status = OrderStatus.Refunded;
-            order.UpdateAt = DateTime.UtcNow;
+            order.MarkAsRefunded(); // durum geçişi + bildirim event'i domain'de
             _unitOfWork.Order.Update(order);
 
             // Stokları geri ekle

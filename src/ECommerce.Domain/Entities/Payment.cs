@@ -35,6 +35,10 @@ namespace ECommerce.Domain.Entities
 
         public void MarkAsFailed()
         {
+            // Tamamlanmış/iade edilmiş bir ödemenin "başarısız" sayılması para kaydını bozar.
+            if (Status != Enums.PaymentStatus.Pending)
+                throw new InvalidOperationException("Sadece bekleyen ödemeler başarısız olarak işaretlenebilir.");
+
             Status = Enums.PaymentStatus.Failed;
             UpdateAt = DateTime.UtcNow;
         }
