@@ -141,6 +141,27 @@ Auth endpoint'leri 5 istek/dakika, API endpoint'leri 30 istek/dakika, global ise
 
 ---
 
+## 🕵️ Fraud Tespiti (ayrı servis)
+
+Siparişler, ayrı bir repoda geliştirilen olay tabanlı bir fraud servisiyle puanlanabilir: **[ECommerceFraud](https://github.com/Muhametaydn/ECommerceFraud)**. Kurallar, analist incelemesi, Kibana panosu, trafik simülatörü ve gölge ML modeli orada; bu repo yalnızca entegrasyon noktalarını içerir.
+
+```
+Sipariş oluşturulur ──OrderRiskCheckRequested──► RabbitMQ ──► Fraud servisi (kurallar → puan)
+Order.RiskStatus   ◄──OrderRiskAssessed / OrderRiskReviewed── (otomatik karar / analist kararı)
+```
+
+- **Varsayılan kapalı** (`FraudDetection__Enabled=false`): kapalıyken sipariş akışı birebir aynıdır, outbox'a fraud olayı yazılmaz, consumer'lar kaydedilmez.
+- **Aynı transaction:** `OrderRiskCheckRequested` siparişle birlikte outbox'a yazılır. Kişisel veri en aza indirilir: e-postanın yalnızca alan adı, adresin SHA-256 parmak izi gönderilir; kart verisi hiç gönderilmez.
+- **Hesap ele geçirme sinyali:** Şifre değişikliği/sıfırlama ve e-posta değişikliği `AccountSecurityChanged` olarak yayımlanır (yeni şifre veya e-posta taşınmaz).
+- **`Order.RiskStatus`** (NotChecked / Clear / Review / Rejected) sipariş durum makinesinden ayrıdır; gelen kararlar idempotent uygulanır.
+- **Modlar:** `Monitor` kararları yalnızca kaydeder. `Enforce`'ta `IFraudGate` admin onayı ve satıcı hazırlığı öncesi incelemedeki siparişi durdurur; analist reddi siparişi müşteri iptaliyle aynı kodla iptal eder (stok ve kupon geri verilir).
+- **Fail-open:** Karar henüz gelmemiş sipariş engellenmez; fraud servisi çökse de satış durmaz.
+- **Bilgi verme yasağı:** Müşteriye ve satıcıya nötr mesaj gösterilir ("ek kontrol bekliyor"); risk durumu ve puan müşteri/satıcı yanıtlarında yoktur.
+
+Kurulum, Docker ile tam sistem, kurallar, ölçümler ve bankacılık bağlamı (KVKK, PCI-DSS, MASAK): [ECommerceFraud README](https://github.com/Muhametaydn/ECommerceFraud#readme).
+
+---
+
 ## 🚀 Hızlı Başlangıç
 
 ### Gereksinimler

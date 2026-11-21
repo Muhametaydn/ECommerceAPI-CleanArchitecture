@@ -140,6 +140,27 @@ Auth endpoints are limited to 5 requests/minute, API endpoints to 30 requests/mi
 
 ---
 
+## 🕵️ Fraud Detection (separate service)
+
+Orders can be scored by an event-driven fraud service developed in a separate repository: **[ECommerceFraud](https://github.com/Muhametaydn/ECommerceFraud)**. Rules, analyst review, the Kibana dashboard, the traffic simulator and the shadow ML model live there; this repository only contains the integration points.
+
+```
+Order created     ──OrderRiskCheckRequested──► RabbitMQ ──► Fraud service (rules → score)
+Order.RiskStatus  ◄──OrderRiskAssessed / OrderRiskReviewed── (automatic decision / analyst decision)
+```
+
+- **Off by default** (`FraudDetection__Enabled=false`): while off, the order flow is exactly the same, no fraud event is written to the outbox and no consumers are registered.
+- **Same transaction:** `OrderRiskCheckRequested` is written to the outbox together with the order. Personal data is minimised: only the email domain and a SHA-256 fingerprint of the address are sent; card data is never sent.
+- **Account-takeover signal:** password changes/resets and email changes are published as `AccountSecurityChanged` (without the new password or email).
+- **`Order.RiskStatus`** (NotChecked / Clear / Review / Rejected) is separate from the order state machine; incoming decisions are applied idempotently.
+- **Modes:** `Monitor` only records decisions. In `Enforce`, `IFraudGate` stops an order under review before admin confirmation and seller preparation; an analyst rejection cancels the order through the same code as a customer cancellation (stock and coupon are released).
+- **Fail-open:** an order without a decision yet is not blocked; sales continue even if the fraud service is down.
+- **No tipping-off:** customers and sellers see a neutral message ("additional check pending"); risk status and score are absent from customer/seller responses.
+
+Setup, full system with Docker, rules, measurements and banking context (KVKK/GDPR, PCI-DSS, MASAK/AML): [ECommerceFraud README](https://github.com/Muhametaydn/ECommerceFraud/blob/main/README.en.md).
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
