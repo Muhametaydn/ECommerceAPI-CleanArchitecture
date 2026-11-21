@@ -5,6 +5,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using ECommerce.Infrastructure.Settings;
+using ECommerce.Application.Common.Fraud;
+using ECommerce.Contracts.Fraud;
+using ECommerce.Domain.Outbox;
+using System.Text.Json;
 
 namespace ECommerce.Infrastructure.Services;
 
@@ -14,9 +18,12 @@ public sealed class AccountSecurityService : IAccountSecurityService
     private readonly ApplicationDbContext _dbContext;
     private readonly IEmailService _emailService;
     private readonly EmailSettings _emailSettings;
+    private readonly FraudDetectionSettings _fraud;
 
-    public AccountSecurityService(UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, IEmailService emailService, IOptions<EmailSettings> emailSettings)
+    public AccountSecurityService(UserManager<ApplicationUser> userManager, ApplicationDbContext dbContext, IEmailService emailService, IOptions<EmailSettings> emailSettings,
+        FraudDetectionSettings? fraud = null)
     {
+        _fraud = fraud ?? new FraudDetectionSettings();
         _userManager = userManager;
         _dbContext = dbContext;
         _emailService = emailService;
@@ -45,6 +52,7 @@ public sealed class AccountSecurityService : IAccountSecurityService
         foreach (var token in activeTokens)
             token.Revoke();
 
+        QueueSecurityChange(userId, SecurityChangeKinds.PasswordChanged);
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
@@ -77,6 +85,7 @@ public sealed class AccountSecurityService : IAccountSecurityService
         foreach (var refreshToken in activeTokens)
             refreshToken.Revoke();
 
+        QueueSecurityChange(user.Id, SecurityChangeKinds.PasswordReset);
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
@@ -144,6 +153,7 @@ public sealed class AccountSecurityService : IAccountSecurityService
             .ToListAsync(cancellationToken);
         foreach (var refresh in activeTokens)
             refresh.Revoke();
+        QueueSecurityChange(userId, SecurityChangeKinds.EmailChanged);
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
@@ -159,5 +169,30 @@ public sealed class AccountSecurityService : IAccountSecurityService
         var result = await _userManager.ConfirmEmailAsync(user, token);
         if (!result.Succeeded)
             throw new InvalidOperationException("E-posta doğrulama bağlantısı geçersiz veya süresi dolmuş.");
+    }
+
+    /// <summary>
+    /// Fraud açıksa hesap güvenliği değişikliğini aynı transaction'da outbox'a yazar (hesap ele geçirme sinyali).
+    /// Değişiklik geri alınırsa olay da yazılmaz. Yeni e-posta veya şifre bilgisi gönderilmez.
+    /// </summary>
+    private void QueueSecurityChange(Guid userId, string changeKind)
+    {
+        if (!_fraud.Enabled)
+            return;
+
+        var message = new AccountSecurityChanged
+        {
+            EventId = Guid.NewGuid(),
+            OccurredAt = DateTimeOffset.UtcNow,
+            UserId = userId,
+            ChangeKind = changeKind
+        };
+        _dbContext.OutboxMessages.Add(new OutboxMessage
+        {
+            Id = Guid.NewGuid(),
+            Type = typeof(AccountSecurityChanged).FullName!,
+            Payload = JsonSerializer.Serialize(message),
+            CreatedAt = DateTime.UtcNow
+        });
     }
 }

@@ -33,6 +33,7 @@ namespace ECommerce.Infrastructure.Jobs
             [typeof(LowStockAlertIntegrationEvent).FullName!]       = typeof(LowStockAlertIntegrationEvent),
             // Fraud servisine giden olay (sözleşme: ECommerce.Contracts.Fraud)
             [typeof(ECommerce.Contracts.Fraud.OrderRiskCheckRequested).FullName!] = typeof(ECommerce.Contracts.Fraud.OrderRiskCheckRequested),
+            [typeof(ECommerce.Contracts.Fraud.AccountSecurityChanged).FullName!] = typeof(ECommerce.Contracts.Fraud.AccountSecurityChanged),
         };
 
         public OutboxProcessorJob(

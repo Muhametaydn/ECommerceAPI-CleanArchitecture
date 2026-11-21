@@ -23,7 +23,8 @@ public class FraudContractTests
     {
         { "order-risk-check-requested.v1.json", typeof(OrderRiskCheckRequested) },
         { "order-risk-assessed.v1.json", typeof(OrderRiskAssessed) },
-        { "order-risk-reviewed.v1.json", typeof(OrderRiskReviewed) }
+        { "order-risk-reviewed.v1.json", typeof(OrderRiskReviewed) },
+        { "account-security-changed.v1.json", typeof(AccountSecurityChanged) }
     };
 
     [Theory]
@@ -41,7 +42,7 @@ public class FraudContractTests
     [Fact]
     public void Contracts_use_the_shared_namespace()
     {
-        foreach (var type in new[] { typeof(OrderRiskCheckRequested), typeof(OrderRiskAssessed), typeof(OrderRiskReviewed) })
+        foreach (var type in new[] { typeof(OrderRiskCheckRequested), typeof(OrderRiskAssessed), typeof(OrderRiskReviewed), typeof(AccountSecurityChanged) })
             type.FullName.Should().Be($"ECommerce.Contracts.Fraud.{type.Name}");
     }
 

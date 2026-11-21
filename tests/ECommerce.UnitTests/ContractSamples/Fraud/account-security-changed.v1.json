@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "eventId": "2a6f9c1e-7b3d-4e8a-9c5f-1d0e3b2a4c68",
+  "occurredAt": "2026-11-20T11:45:00+00:00",
+  "userId": "9a7e5c3b-2d1f-4e6a-8b9c-0f1e2d3c4b5a",
+  "changeKind": "PasswordReset"
+}
