@@ -111,6 +111,9 @@ services:
       - JwtSettings__SecretKey=${JWT_SECRET_KEY:-}
       # Frontend sunucusu X-Forwarded-For gönderir; yalnızca compose ağındaki proxy'lere güvenilir.
       - ReverseProxy__KnownNetworks__0=${TRUSTED_PROXY_NETWORK:-172.16.0.0/12}
+      # Fraud servisi entegrasyonu (ECommerceFraud reposu). Varsayılan kapalı: kapalıyken sipariş akışı değişmez.
+      - FraudDetection__Enabled=${FRAUD_DETECTION_ENABLED:-false}
+      - FraudDetection__Mode=${FRAUD_DETECTION_MODE:-Monitor}
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,3 +135,8 @@ volumes:
   api_logs:
   product_images:
   profile_images:
+
+# Sabit ağ adı: ayrı repolardaki servisler (ECommerceFraud) bu ağa "external" olarak katılır.
+networks:
+  default:
+    name: ecommerce
